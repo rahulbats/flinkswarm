@@ -1,7 +1,7 @@
 package io.flinkswarm.flink;
 
+import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 
 import org.apache.flink.table.annotation.ArgumentHint;
 import org.apache.flink.table.annotation.ArgumentTrait;
@@ -14,73 +14,61 @@ import org.apache.flink.types.Row;
 /**
  * Barrier / scatter-gather aggregator for FlinkSwarm (Flink 2.0 PTF).
  *
- * <p>Partitioned by the Kafka message key (`key` column = claim_id). Buffers one
- * result row per sub-agent in keyed PTF state and emits a single aggregated JSON
- * payload once {@code expected_agents} distinct agents have reported. That output
- * row is the "all workers done for this claim" signal the orchestrator consumes.
+ * <p>Partitioned by the Kafka message key (the {@code key} column == claim_id).
+ * Buffers one result row per sub-agent in keyed PTF state and emits a single
+ * aggregated JSON payload once {@link #EXPECTED_AGENTS} distinct agents have
+ * reported. That output row is the "all workers done for this claim" signal the
+ * orchestrator consumes.
  *
- * <p>Output: `key` (the claim_id, becomes the Kafka key again) + `claim_id`
- * (same value, kept in the message value so it is self-contained) +
- * `aggregated_payload` (a JSON string).
+ * <p>Output is {@code (claim_id, aggregated_payload)}; the INSERT re-derives the
+ * Kafka {@code key} column from {@code claim_id}.
  *
- * <p>SQL:
  * <pre>
  * INSERT INTO `agent.synthesis.ready`
- * SELECT `key`, claim_id, aggregated_payload
+ * SELECT claim_id AS `key`, claim_id, aggregated_payload
  * FROM TABLE(AgentBarrierAggregator(
- *   input           => TABLE `agent.results.completed` PARTITION BY `key`,
- *   expected_agents => 2,
- *   uid             => 'flinkswarm-barrier-v1'));
+ *   input => TABLE `agent.results.completed` PARTITION BY `key`,
+ *   uid   => 'flinkswarm-barrier-v1'));
  * </pre>
  *
  * <p>Flink 2.0 PTF has no timer API, so there is no timeout: a claim where an
  * agent never reports stays buffered. Workers always emit a result row (even on
  * failure), so only a hard crash / lost message stalls a claim.
  */
-@FunctionHint(
-    output = @DataTypeHint("ROW<`key` STRING, `claim_id` STRING, `aggregated_payload` STRING>"))
+@FunctionHint(output = @DataTypeHint("ROW<claim_id STRING, aggregated_payload STRING>"))
 public class AgentBarrierAggregator extends ProcessTableFunction<Row> {
 
+    /** Number of sub-agents to wait for. Matches spec.workers in agent-spec.yaml. */
+    public static final int EXPECTED_AGENTS = 2;
+
     public static class BarrierState {
-        public String claimId;
-        /** agent_name -> result text, ordered for deterministic output. */
-        public Map<String, String> responses = new TreeMap<>();
-        public boolean emitted = false;
+        public Map<String, String> responses = new HashMap<>();
     }
 
     public void eval(
             @StateHint BarrierState state,
-            @ArgumentHint(value = ArgumentTrait.TABLE_AS_SET, name = "input") Row input,
-            @ArgumentHint(name = "expected_agents") Integer expectedAgents) {
-
-        if (state.emitted) {
-            return; // straggler after the barrier already fired for this key
-        }
+            @ArgumentHint(ArgumentTrait.TABLE_AS_SET) Row input) {
 
         String claimId = input.getFieldAs("key"); // partition key == claim_id
         String agentName = input.getFieldAs("agent_name");
         String status = input.getFieldAs("status");
         String result = input.getFieldAs("result");
 
-        state.claimId = claimId;
         state.responses.put(
                 agentName,
                 "FAILURE".equalsIgnoreCase(status) ? "[agent reported FAILURE]" : result);
 
-        int expected = (expectedAgents == null || expectedAgents <= 0) ? 1 : expectedAgents;
-        if (state.responses.size() >= expected) {
-            String payload = buildPayload(state);
-            collect(Row.of(state.claimId, state.claimId, payload));
-            state.emitted = true;
-            state.responses = new TreeMap<>();
+        if (state.responses.size() >= EXPECTED_AGENTS) {
+            collect(Row.of(claimId, buildPayload(claimId, state.responses)));
+            state.responses = new HashMap<>();
         }
     }
 
-    private static String buildPayload(BarrierState state) {
+    private static String buildPayload(String claimId, Map<String, String> responses) {
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"claim_id\":\"").append(jsonEscape(state.claimId)).append("\",\"results\":{");
+        sb.append("{\"claim_id\":\"").append(jsonEscape(claimId)).append("\",\"results\":{");
         boolean first = true;
-        for (Map.Entry<String, String> e : state.responses.entrySet()) {
+        for (Map.Entry<String, String> e : responses.entrySet()) {
             if (!first) {
                 sb.append(',');
             }

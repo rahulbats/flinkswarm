@@ -55,19 +55,20 @@ WITH (
 -- --------------------------------------------------------------------------
 CREATE FUNCTION AgentBarrierAggregator
     AS 'io.flinkswarm.flink.AgentBarrierAggregator'
-    USING JAR 'confluent-artifact://cfa-xw9gp1/ver-x0zzrq';
+    USING JAR 'confluent-artifact://cfa-zw0vo7/ver-719952';
 
 
 -- --------------------------------------------------------------------------
--- 4. The barrier job (long-running). expected_agents = number of
---    spec.workers in agent-spec.yaml.
+-- 4. The barrier job (long-running). The number of agents to wait for is
+--    EXPECTED_AGENTS in AgentBarrierAggregator.java (currently 2). The PTF
+--    output is (claim_id, aggregated_payload); we re-derive the Kafka `key`
+--    column from claim_id here.
 -- --------------------------------------------------------------------------
 INSERT INTO `agent.synthesis.ready`
-SELECT `key`, `claim_id`, `aggregated_payload`
+SELECT `claim_id` AS `key`, `claim_id`, `aggregated_payload`
 FROM TABLE(
     AgentBarrierAggregator(
-        input           => TABLE `agent.results.completed` PARTITION BY `key`,
-        expected_agents => 2,
-        uid             => 'flinkswarm-barrier-v1'
+        input => TABLE `agent.results.completed` PARTITION BY `key`,
+        uid   => 'flinkswarm-barrier-v1'
     )
 );
