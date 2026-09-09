@@ -83,14 +83,17 @@ class ResultCompleted:
 
 @dataclass
 class SynthesisReady:
-    """Emitted by the Flink barrier to `agent.synthesis.ready` (key = claim_id).
+    """Emitted by the Flink SQL barrier to `agent.synthesis.ready` as an upsert
+    stream, one row per claim_id, updated as each agent reports.
 
     The value schema for this topic is owned by the Flink `CREATE TABLE`, so
     this schema is only used for permissive read-side validation — keep it lax.
-    `aggregated_payload` is a JSON string built by AgentBarrierAggregator.
+    The orchestrator acts once `agent_count` reaches the expected worker count.
+    `aggregated_payload` is the LISTAGG of "<agent_name>: <result>" chunks.
     """
 
     claim_id: str
+    agent_count: int
     aggregated_payload: str
 
     JSON_SCHEMA = json.dumps(
@@ -100,6 +103,7 @@ class SynthesisReady:
             "type": "object",
             "properties": {
                 "claim_id": {"type": "string"},
+                "agent_count": {"type": "integer"},
                 "aggregated_payload": {"type": "string"},
             },
         }

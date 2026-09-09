@@ -65,8 +65,9 @@ def test_event_schemas_are_valid_json():
 
 
 def test_synthesis_and_decision_events():
-    s = loads(SynthesisReady, dumps(SynthesisReady("CLM-1", '{"results":{}}')))
-    assert json.loads(s.aggregated_payload) == {"results": {}}
+    s = loads(SynthesisReady, dumps(SynthesisReady("CLM-1", 2, "ClaimDataAgent: ok ||| PolicyDocAgent: ok")))
+    assert s.agent_count == 2
+    assert "PolicyDocAgent" in s.aggregated_payload
     dec = loads(DecisionFinal, dumps(DecisionFinal("CLM-1", "COVERED", "because")))
     assert dec.tool_calls == []
 

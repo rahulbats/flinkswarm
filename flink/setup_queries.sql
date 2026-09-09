@@ -1,74 +1,53 @@
 -- ==========================================================================
--- FlinkSwarm — Confluent Cloud for Apache Flink
+-- FlinkSwarm — barrier on Confluent Cloud for Apache Flink (pure SQL)
 -- ==========================================================================
--- Design: claim_id is the Kafka message key on every topic (raw string). The
--- barrier partitions by that key, so there is no reshuffle, and downstream
--- joins / compaction on claim_id line up for free.
+-- Confluent Cloud Flink does NOT support ProcessTableFunction / user-defined
+-- aggregates / UDF state (only stateless ScalarFunction + TableFunction). So
+-- the "wait for all N agents per claim" barrier is a plain GROUP BY that emits
+-- an UPSERT stream — one row per claim_id, updated as each agent reports. The
+-- orchestrator acts once agent_count reaches the worker count in agent-spec.yaml.
+-- (The PTF version, for open-source / self-managed Flink, is in
+--  flink/ptf-open-source-only/.)
 --
 -- Order of operations (from scratch):
---   1. Delete the 4 topics + their `-value` (and any `-key`) SR subjects.
---   2. ./scripts/create_topics.sh
---   3. python -m flinkswarm.register_schemas
---        -> registers value schemas for tasks / results / decisions.
---           agent.synthesis.ready is created by Flink below.
---   4. Run the statements in this file:
---        confluent flink shell --compute-pool <lfcp-...>
---        USE CATALOG `<environment>`;
---        USE `<kafka-cluster>`;
+--   1. Schema Registry enabled on the environment.
+--   2. python -m flinkswarm.register_schemas   (tasks / results / decisions)
+--   3. Run the statements below:
+--        confluent flink shell --compute-pool <lfcp-...> \
+--            --environment <env-...> --database <lkc-...>
 --
--- Table names contain dots, so backtick-quote them in SQL.
+-- Table names contain dots -> backtick-quote them.
 -- ==========================================================================
 
 -- --------------------------------------------------------------------------
--- 1. Make the inferred key column a STRING (it comes through as VARBINARY
---    because there is no key schema — this is the documented fix).
---    Run DESCRIBE first if ALTER says the table is not found.
--- --------------------------------------------------------------------------
--- DESCRIBE `agent.results.completed`;
-ALTER TABLE `agent.results.completed` MODIFY `key` STRING;
-
-
--- --------------------------------------------------------------------------
--- 2. Output table. claim_id is the Kafka key (raw string) AND is kept in the
---    value so the message is self-contained.
+-- 1. Output table: upsert stream keyed by claim_id.
+--    If an earlier attempt created this table/topic with a different schema:
+--      DROP TABLE `agent.synthesis.ready`;
+--      -- then delete the topic + its -value subject, or the CREATE will
+--      -- fail with "Schema Registry subject ... doesn't match".
 -- --------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `agent.synthesis.ready` (
-    `key`                STRING,
     `claim_id`           STRING,
-    `aggregated_payload` STRING
-) DISTRIBUTED BY HASH(`key`) INTO 6 BUCKETS
+    `agent_count`        BIGINT,
+    `aggregated_payload` STRING,
+    PRIMARY KEY (`claim_id`) NOT ENFORCED
+) DISTRIBUTED BY HASH(`claim_id`) INTO 6 BUCKETS
 WITH (
-    'changelog.mode' = 'append',
-    'key.format'     = 'raw',
+    'changelog.mode' = 'upsert',
+    'key.format'     = 'json-registry',
     'value.format'   = 'json-registry'
 );
 
 
 -- --------------------------------------------------------------------------
--- 3. Register the PTF. Build + upload the jar first (JDK 21):
---      cd flink
---      export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
---      mvn clean package
---      confluent flink artifact create flinkswarm-barrier \
---          --artifact-file target/flinkswarm-flink-udf.jar --cloud aws --region us-west-2
---    then paste the printed artifact id + version below.
--- --------------------------------------------------------------------------
-CREATE FUNCTION AgentBarrierAggregator
-    AS 'io.flinkswarm.flink.AgentBarrierAggregator'
-    USING JAR 'confluent-artifact://cfa-zw0vo7/ver-719952';
-
-
--- --------------------------------------------------------------------------
--- 4. The barrier job (long-running). The number of agents to wait for is
---    EXPECTED_AGENTS in AgentBarrierAggregator.java (currently 2). The PTF
---    output is (claim_id, aggregated_payload); we re-derive the Kafka `key`
---    column from claim_id here.
+-- 2. The barrier job (long-running).
+--    Optional: cap unbounded GROUP BY state so old claims are GC'd.
+--      SET 'sql.state-ttl' = '4 hours';
 -- --------------------------------------------------------------------------
 INSERT INTO `agent.synthesis.ready`
-SELECT `claim_id` AS `key`, `claim_id`, `aggregated_payload`
-FROM TABLE(
-    AgentBarrierAggregator(
-        input => TABLE `agent.results.completed` PARTITION BY `key`,
-        uid   => 'flinkswarm-barrier-v1'
-    )
-);
+SELECT
+    `claim_id`,
+    COUNT(DISTINCT `agent_name`)                          AS `agent_count`,
+    LISTAGG(`agent_name` || ': ' || `result`, ' ||| ')    AS `aggregated_payload`
+FROM `agent.results.completed`
+GROUP BY `claim_id`;

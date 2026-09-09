@@ -75,21 +75,20 @@ class OrchestratorService:
         self._decision_codec = ValueCodec(DecisionFinal, sr, sr_client)
         logger.info("orchestrator schema registry: %s", "on" if sr.enabled else "off (plain JSON)")
 
+        # The Flink barrier emits an upsert stream — one growing row per claim.
+        # We act once every worker has reported, and only once per claim.
+        self._expected = self.spec.expected_agent_count
+        self._decided: set[str] = set()
         self._stop = asyncio.Event()
 
     def request_stop(self, *_: object) -> None:
         self._stop.set()
 
     async def _synthesize(self, event: SynthesisReady) -> None:
-        try:
-            payload = json.loads(event.aggregated_payload)
-        except json.JSONDecodeError:
-            payload = {"raw": event.aggregated_payload}
-
         prompt = (
-            f"Claim {event.claim_id}. Sub-agent findings follow as JSON. "
-            f"Produce a single JSON object with keys `decision` and `rationale`.\n\n"
-            f"{json.dumps(payload, indent=2)}"
+            f"Claim {event.claim_id}. The sub-agent findings follow, one block "
+            f"per agent. Produce a single JSON object with keys `decision` and "
+            f"`rationale`.\n\n{event.aggregated_payload}"
         )
         run = await self.agent.run(prompt)
 
@@ -130,6 +129,10 @@ class OrchestratorService:
                     logger.error("consume error: %s", msg.error())
                 continue
 
+            if msg.value() is None:  # upsert tombstone
+                self.consumer.commit(msg, asynchronous=False)
+                continue
+
             try:
                 event = self._synthesis_codec.decode(msg.value(), self.spec.topics.synthesis)
             except Exception:
@@ -137,8 +140,15 @@ class OrchestratorService:
                 self.consumer.commit(msg, asynchronous=False)
                 continue
 
-            await self._synthesize(event)
-            self.producer.flush(10)
+            if event.agent_count < self._expected:
+                logger.info("%s: %d/%d agents in, waiting", event.claim_id, event.agent_count, self._expected)
+            elif event.claim_id in self._decided:
+                pass  # barrier already fired for this claim
+            else:
+                await self._synthesize(event)
+                self._decided.add(event.claim_id)
+                self.producer.flush(10)
+
             self.consumer.commit(msg, asynchronous=False)
 
         self.producer.flush(10)

@@ -11,24 +11,29 @@ barrier that does scatter/gather across sub-agents.
                                                         │ agent.results.completed
                                                         ▼
                                         ┌───────────────────────────────┐
-                                        │  Flink: AgentBarrierAggregator │
-                                        │  PARTITION BY `key` (claim_id) │
-                                        │  wait for N agents to report   │
+                                        │  Flink SQL: GROUP BY claim_id  │
+                                        │  COUNT(DISTINCT agent_name)    │
+                                        │  + LISTAGG(result)  → upsert   │
                                         └───────────────┬───────────────┘
-                                                        │ agent.synthesis.ready
+                                                        │ agent.synthesis.ready (upsert)
                                                         ▼
                                             orchestrator (serve)
+                                        acts once agent_count == N, once/claim
                                                         │ agent.decisions.final
                                                         ▼
 ```
 
-`claim_id` is the Kafka message key on every topic (raw string), so the barrier
-partitions with no reshuffle and everything co-partitions on the claim.
+`claim_id` is the Kafka message key on every topic.
 
 Each worker consumes the **same** task topic under its own consumer group and
-applies its own instructions + tools (from `agent-spec.yaml`). The Flink PTF
-buffers results per claim and emits one aggregated payload once every expected
-agent has reported. The orchestrator turns that into a final decision.
+applies its own instructions + tools (from `agent-spec.yaml`). Flink groups
+results per claim and emits a growing upsert row (`agent_count`, concatenated
+findings); the orchestrator waits until `agent_count` equals the worker count,
+then synthesizes a decision — once per claim.
+
+> The barrier is **pure Flink SQL** because Confluent Cloud for Apache Flink does
+> not support `ProcessTableFunction` (only stateless scalar/table UDFs). A PTF
+> version for open-source Flink is in `flink/ptf-open-source-only/`.
 
 ## Layout
 
@@ -42,9 +47,8 @@ agent has reported. The orchestrator turns that into a final decision.
 | `flinkswarm/tools/` | `TOOL_REGISTRY` + `get_claim_from_cosmos`, `get_policy_from_blob` (mocked) |
 | `flinkswarm/worker.py` | `GenericSwarmWorker` — one process per agent |
 | `flinkswarm/orchestrator.py` | `dispatch` (produce task) + `serve` (consume barrier → decide) |
-| `flink/src/main/java/io/flinkswarm/flink/AgentBarrierAggregator.java` | PTF barrier (Flink 2.0) |
-| `flink/pom.xml` | Builds the UDF jar to upload as a Confluent Flink artifact (build with JDK 21) |
-| `flink/setup_queries.sql` | Confluent Cloud Flink DDL + the barrier job |
+| `flink/setup_queries.sql` | Confluent Cloud Flink: the pure-SQL upsert barrier |
+| `flink/ptf-open-source-only/` | PTF barrier for open-source Flink (unsupported on Confluent Cloud) |
 | `k8s/` | Deployment + KEDA ScaledObject (lag-based autoscaling) |
 | `scripts/` | `create_topics.sh`, `run_swarm.sh` |
 
@@ -56,8 +60,8 @@ agent has reported. The orchestrator turns that into a final decision.
 - A Confluent Cloud Kafka cluster + API key/secret
 - Schema Registry enabled on the environment (Stream Governance Essentials, free)
   + a Schema Registry API key/secret
-- Confluent Cloud for Apache Flink (compute pool) for the barrier
-- `confluent` CLI, and **JDK 21** + Maven to build the PTF jar
+- Confluent Cloud for Apache Flink (a compute pool) for the barrier
+- `confluent` CLI
 
 ## Setup
 
@@ -87,25 +91,20 @@ python -m flinkswarm.register_schemas --check   # show what's registered
 
 ### 2. Flink barrier
 
-Build with **JDK 21** — Confluent Cloud rejects artifacts built with a newer
-JDK, and the jar manifest records the build JDK, so `--release` alone is not
-enough. There is no CLI "update" for an artifact — delete + recreate to push a
-new jar.
+No jar to build — it's pure SQL. In the Flink shell:
 
 ```bash
-cd flink
-export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-mvn clean package                   # -> target/flinkswarm-flink-udf.jar
-confluent flink artifact create flinkswarm-barrier \
-    --artifact-file target/flinkswarm-flink-udf.jar --cloud aws --region us-west-2 -o json
+confluent flink shell --compute-pool <lfcp-…> --environment <env-…> --database <lkc-…>
 ```
 
-Then run the statements in `flink/setup_queries.sql` (easiest in
-`confluent flink shell --compute-pool <lfcp-…>`), pasting the printed artifact
-id + version into the `USING JAR 'confluent-artifact://…'` line. The
-`agent.results.completed` table is inferred from the schema registered in step 1;
-the `ALTER TABLE … MODIFY \`key\` STRING` in the file turns its raw key column
-from `VARBINARY` into a usable `STRING`.
+Run the two statements in `flink/setup_queries.sql`:
+
+1. `CREATE TABLE \`agent.synthesis.ready\` (…) WITH ('changelog.mode' = 'upsert', …)`
+2. the long-running `INSERT … SELECT claim_id, COUNT(DISTINCT agent_name), LISTAGG(…) … GROUP BY claim_id`
+
+`agent.results.completed` is inferred as a table from the schema registered in
+step 1 — nothing to create. The `INSERT` stays `RUNNING`; confirm with
+`confluent flink statement list`.
 
 ## Run locally
 
@@ -127,11 +126,14 @@ pytest -q          # unit tests, no Kafka/LLM needed (agent loop is faked)
 
 ## Notes / TODO
 
-- **Barrier timeout**: Flink 2.0 PTF has no timer API, so a claim where an agent
-  never reports stays buffered in the barrier forever. Workers always emit a
-  result row (even on failure), so only a hard crash / lost message stalls a
-  claim. Add a deadline sweeper to the orchestrator, or move to Flink 2.1 PTF
-  timers once the Confluent Cloud runtime supports them.
+- **Barrier timeout / unbounded state**: the `GROUP BY claim_id` keeps one state
+  entry per claim forever, and a claim where an agent never reports never
+  advances. Set a statement state TTL (`SET 'sql.state-ttl' = '4 hours';` before
+  the INSERT) so stale claims are GC'd. Workers always emit a result row (even on
+  failure), so only a hard crash / lost message stalls a claim.
+- **Orchestrator dedupe** is an in-memory `set` of decided claim_ids — decisions
+  can be re-emitted after an orchestrator restart. Make `agent.decisions.final`
+  the source of truth if that matters.
 - **Tools are mocked** (`_FAKE_CLAIMS` / `_FAKE_POLICIES` in `flinkswarm/tools/`).
   Wire them to the real claim/policy store.
 - **Go operator** (later): reconcile `SwarmDeployment` → Deployments + KEDA

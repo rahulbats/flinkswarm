@@ -192,3 +192,7 @@ class SwarmSpec:
     @property
     def expected_agents(self) -> list[str]:
         return [w.name for w in self.workers]
+
+    @property
+    def expected_agent_count(self) -> int:
+        return len(self.workers)
