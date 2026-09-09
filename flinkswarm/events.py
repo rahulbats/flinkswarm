@@ -90,11 +90,13 @@ class SynthesisReady:
     this schema is only used for permissive read-side validation — keep it lax.
     The orchestrator acts once `agent_count` reaches the expected worker count.
     `aggregated_payload` is the LISTAGG of "<agent_name>: <result>" chunks.
+    `claim_id` is the Kafka message key (Flink's PRIMARY KEY column), not part
+    of the value — the orchestrator fills it in from the key.
     """
 
-    claim_id: str
     agent_count: int
     aggregated_payload: str
+    claim_id: str = ""
 
     JSON_SCHEMA = json.dumps(
         {

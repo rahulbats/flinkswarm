@@ -24,6 +24,7 @@ from confluent_kafka import KafkaError
 from .config import KafkaSettings, LLMSettings, SchemaRegistrySettings, SwarmSpec
 from .events import DecisionFinal, SynthesisReady, TaskDispatched
 from .kafka import (
+    KeyCodec,
     ValueCodec,
     build_consumer,
     build_producer,
@@ -66,12 +67,15 @@ class OrchestratorService:
             llm=LLMSettings.from_env(),
         )
         kafka = _kafka(self.spec)
-        self.consumer = build_consumer(kafka, group_id="flinkswarm-orchestrator")
+        # Bump ORCHESTRATOR_GROUP to re-read agent.synthesis.ready from the start.
+        group = os.getenv("ORCHESTRATOR_GROUP", "flinkswarm-orchestrator")
+        self.consumer = build_consumer(kafka, group_id=group)
         self.producer = build_producer(kafka)
 
         sr = SchemaRegistrySettings.from_env()
         sr_client = schema_registry_client(sr)
         self._synthesis_codec = ValueCodec(SynthesisReady, sr, sr_client)
+        self._synthesis_key = KeyCodec(sr, sr_client)
         self._decision_codec = ValueCodec(DecisionFinal, sr, sr_client)
         logger.info("orchestrator schema registry: %s", "on" if sr.enabled else "off (plain JSON)")
 
@@ -135,6 +139,7 @@ class OrchestratorService:
 
             try:
                 event = self._synthesis_codec.decode(msg.value(), self.spec.topics.synthesis)
+                event.claim_id = self._synthesis_key.claim_id(msg.key(), self.spec.topics.synthesis)
             except Exception:
                 logger.exception("bad synthesis payload, skipping")
                 self.consumer.commit(msg, asynchronous=False)
@@ -145,9 +150,12 @@ class OrchestratorService:
             elif event.claim_id in self._decided:
                 pass  # barrier already fired for this claim
             else:
-                await self._synthesize(event)
-                self._decided.add(event.claim_id)
-                self.producer.flush(10)
+                try:
+                    await self._synthesize(event)
+                    self._decided.add(event.claim_id)
+                    self.producer.flush(10)
+                except Exception:
+                    logger.exception("synthesis failed for %s, will retry on next update", event.claim_id)
 
             self.consumer.commit(msg, asynchronous=False)
 

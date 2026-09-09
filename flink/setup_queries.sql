@@ -44,10 +44,16 @@ WITH (
 --    Optional: cap unbounded GROUP BY state so old claims are GC'd.
 --      SET 'sql.state-ttl' = '4 hours';
 -- --------------------------------------------------------------------------
+-- Inner GROUP BY keeps only the latest result per (claim_id, agent_name), so
+-- re-runs / retries of a worker don't inflate the payload.
 INSERT INTO `agent.synthesis.ready`
 SELECT
     `claim_id`,
-    COUNT(DISTINCT `agent_name`)                          AS `agent_count`,
-    LISTAGG(`agent_name` || ': ' || `result`, ' ||| ')    AS `aggregated_payload`
-FROM `agent.results.completed`
+    COUNT(*)                                                   AS `agent_count`,
+    LISTAGG(`agent_name` || ': ' || `latest_result`, ' ||| ')  AS `aggregated_payload`
+FROM (
+    SELECT `claim_id`, `agent_name`, LAST_VALUE(`result`) AS `latest_result`
+    FROM `agent.results.completed`
+    GROUP BY `claim_id`, `agent_name`
+)
 GROUP BY `claim_id`;

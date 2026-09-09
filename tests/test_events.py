@@ -65,9 +65,10 @@ def test_event_schemas_are_valid_json():
 
 
 def test_synthesis_and_decision_events():
-    s = loads(SynthesisReady, dumps(SynthesisReady("CLM-1", 2, "ClaimDataAgent: ok ||| PolicyDocAgent: ok")))
+    s = loads(SynthesisReady, dumps(SynthesisReady(agent_count=2, aggregated_payload="ClaimDataAgent: ok ||| PolicyDocAgent: ok")))
     assert s.agent_count == 2
     assert "PolicyDocAgent" in s.aggregated_payload
+    assert s.claim_id == ""  # filled from the Kafka key by the orchestrator
     dec = loads(DecisionFinal, dumps(DecisionFinal("CLM-1", "COVERED", "because")))
     assert dec.tool_calls == []
 

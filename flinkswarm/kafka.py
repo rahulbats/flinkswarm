@@ -71,7 +71,34 @@ def encode_key(claim_id: str) -> bytes:
 
 
 def decode_key(raw: bytes | None) -> str:
+    """Raw-string key (what the workers/orchestrator produce)."""
     return raw.decode("utf-8") if raw else "UNKNOWN"
+
+
+class KeyCodec:
+    """Read the claim_id from a Kafka key that may be a raw string OR a
+    Schema-Registry JSON object (Flink writes the PRIMARY KEY column as a
+    json-registry key, e.g. {"claim_id": "CLM-1001"}).
+    """
+
+    def __init__(self, sr: SchemaRegistrySettings, client: SchemaRegistryClient | None = None):
+        self._deser: JSONDeserializer | None = None
+        if sr.enabled:
+            client = client or schema_registry_client(sr)
+            self._deser = JSONDeserializer(None, from_dict=lambda d, ctx: d, schema_registry_client=client)
+
+    def claim_id(self, raw: bytes | None, topic: str) -> str:
+        if not raw:
+            return "UNKNOWN"
+        if self._deser is not None and raw[:1] == b"\x00":  # SR wire-format magic byte
+            try:
+                obj = self._deser(raw, SerializationContext(topic, MessageField.KEY))
+                if isinstance(obj, dict):
+                    return str(obj.get("claim_id") or next(iter(obj.values()), "UNKNOWN"))
+                return str(obj)
+            except Exception:
+                logger.exception("failed to decode SR key on %s", topic)
+        return raw.decode("utf-8", errors="replace")
 
 
 # value codec ------------------------------------------------------------- #
