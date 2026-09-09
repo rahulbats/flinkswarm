@@ -12,9 +12,10 @@
 -- Order of operations (from scratch):
 --   1. Schema Registry enabled on the environment.
 --   2. python -m flinkswarm.register_schemas   (tasks / results / decisions)
---   3. Run the statements below:
---        confluent flink shell --compute-pool <lfcp-...> \
---            --environment <env-...> --database <lkc-...>
+--   3. Run statement 1 (CREATE TABLE) in `confluent flink shell`.
+--   4. Create statement 2 (the INSERT) as a PERSISTENT statement via the CLI,
+--      NOT in the web workspace — a workspace statement stops when you close the
+--      tab. See the `confluent flink statement create` command below the INSERT.
 --
 -- Table names contain dots -> backtick-quote them.
 -- ==========================================================================
@@ -40,9 +41,17 @@ WITH (
 
 
 -- --------------------------------------------------------------------------
--- 2. The barrier job (long-running).
---    Optional: cap unbounded GROUP BY state so old claims are GC'd.
---      SET 'sql.state-ttl' = '4 hours';
+-- 2. The barrier job. Create it as a PERSISTENT statement (survives closing
+--    the shell / browser). The state-ttl caps the unbounded GROUP BY / LISTAGG
+--    state so old claims are GC'd (LISTAGG on a retracting input is flagged
+--    STATE_INTENSIVE without it).
+--
+--    confluent flink statement create fs-barrier \
+--      --compute-pool <lfcp-...> --database <lkc-...> --environment <env-...> \
+--      --wait --property sql.state-ttl='4 hours' \
+--      --sql "<the INSERT below, single line>"
+--
+--    Manage it: confluent flink statement {describe,list,delete} fs-barrier
 -- --------------------------------------------------------------------------
 -- Inner GROUP BY keeps only the latest result per (claim_id, agent_name), so
 -- re-runs / retries of a worker don't inflate the payload.

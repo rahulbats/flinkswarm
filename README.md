@@ -97,14 +97,18 @@ No jar to build — it's pure SQL. In the Flink shell:
 confluent flink shell --compute-pool <lfcp-…> --environment <env-…> --database <lkc-…>
 ```
 
-Run the two statements in `flink/setup_queries.sql`:
+1. `CREATE TABLE \`agent.synthesis.ready\` (…) WITH ('changelog.mode' = 'upsert', …)` — in `confluent flink shell`.
+2. The `INSERT … GROUP BY claim_id` barrier — create it as a **persistent** statement, not in the shell / web workspace (those stop when you disconnect):
 
-1. `CREATE TABLE \`agent.synthesis.ready\` (…) WITH ('changelog.mode' = 'upsert', …)`
-2. the long-running `INSERT … SELECT claim_id, COUNT(DISTINCT agent_name), LISTAGG(…) … GROUP BY claim_id`
+```bash
+confluent flink statement create fs-barrier \
+  --compute-pool <lfcp-…> --database <lkc-…> --environment <env-…> \
+  --wait --property sql.state-ttl='4 hours' \
+  --sql "INSERT INTO \`agent.synthesis.ready\` SELECT \`claim_id\`, COUNT(*) AS \`agent_count\`, LISTAGG(\`agent_name\` || ': ' || \`latest_result\`, ' ||| ') AS \`aggregated_payload\` FROM (SELECT \`claim_id\`, \`agent_name\`, LAST_VALUE(\`result\`) AS \`latest_result\` FROM \`agent.results.completed\` GROUP BY \`claim_id\`, \`agent_name\`) GROUP BY \`claim_id\`;"
+```
 
-`agent.results.completed` is inferred as a table from the schema registered in
-step 1 — nothing to create. The `INSERT` stays `RUNNING`; confirm with
-`confluent flink statement list`.
+`agent.results.completed` is inferred as a table from the registered schema —
+nothing to create. Check the barrier with `confluent flink statement describe fs-barrier`.
 
 ## Run locally
 
