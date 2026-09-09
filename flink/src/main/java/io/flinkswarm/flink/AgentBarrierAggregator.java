@@ -50,8 +50,8 @@ public class AgentBarrierAggregator extends ProcessTableFunction<Row> {
 
     public void eval(
             @StateHint BarrierState state,
-            @ArgumentHint(ArgumentTrait.TABLE_AS_SET) Row input,
-            Integer expectedAgents) {
+            @ArgumentHint(value = ArgumentTrait.TABLE_AS_SET, name = "input") Row input,
+            @ArgumentHint(name = "expected_agents") Integer expectedAgents) {
 
         if (state.emitted) {
             return; // straggler after the barrier already fired for this key

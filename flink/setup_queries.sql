@@ -55,7 +55,7 @@ WITH (
 -- --------------------------------------------------------------------------
 CREATE FUNCTION AgentBarrierAggregator
     AS 'io.flinkswarm.flink.AgentBarrierAggregator'
-    USING JAR 'confluent-artifact://cfa-g36dvv/ver-g2yynm';
+    USING JAR 'confluent-artifact://cfa-xw9gp1/ver-x0zzrq';
 
 
 -- --------------------------------------------------------------------------
