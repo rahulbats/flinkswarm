@@ -12,8 +12,8 @@ barrier that does scatter/gather across sub-agents.
                                                         ▼
                                         ┌───────────────────────────────┐
                                         │  Flink: AgentBarrierAggregator │
-                                        │  PARTITION BY claim_id         │
-                                        │  wait for N agents OR timeout  │
+                                        │  PARTITION BY `key` (claim_id) │
+                                        │  wait for N agents to report   │
                                         └───────────────┬───────────────┘
                                                         │ agent.synthesis.ready
                                                         ▼
@@ -22,11 +22,13 @@ barrier that does scatter/gather across sub-agents.
                                                         ▼
 ```
 
+`claim_id` is the Kafka message key on every topic (raw string), so the barrier
+partitions with no reshuffle and everything co-partitions on the claim.
+
 Each worker consumes the **same** task topic under its own consumer group and
 applies its own instructions + tools (from `agent-spec.yaml`). The Flink PTF
-buffers results per `claim_id` and emits one aggregated payload once every
-expected agent has reported (or a timeout fires). The orchestrator turns that
-into a final decision.
+buffers results per claim and emits one aggregated payload once every expected
+agent has reported. The orchestrator turns that into a final decision.
 
 ## Layout
 
@@ -75,35 +77,35 @@ workers fall back to plain JSON — fine for a local sanity check, not for Flink
 
 ### 1. Register the schemas
 
-Creating the topics does **not** create schemas ("data contracts"). Register
-them explicitly:
+Creating the topics does **not** create schemas ("data contracts"). Register the
+three the Python side produces (`agent.synthesis.ready` is created by Flink):
 
 ```bash
-python -m flinkswarm.register_schemas          # registers <topic>-value for all 4
+python -m flinkswarm.register_schemas          # tasks / results / decisions
 python -m flinkswarm.register_schemas --check   # show what's registered
 ```
-
-(Auto-registration on first produce also works, but this makes the Flink tables
-available before the swarm runs.)
 
 ### 2. Flink barrier
 
 Build with **JDK 21** — Confluent Cloud rejects artifacts built with a newer
 JDK, and the jar manifest records the build JDK, so `--release` alone is not
-enough.
+enough. There is no CLI "update" for an artifact — delete + recreate to push a
+new jar.
 
 ```bash
 cd flink
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 mvn clean package                   # -> target/flinkswarm-flink-udf.jar
 confluent flink artifact create flinkswarm-barrier \
-    --artifact-file target/flinkswarm-flink-udf.jar --cloud aws --region us-west-2
+    --artifact-file target/flinkswarm-flink-udf.jar --cloud aws --region us-west-2 -o json
 ```
 
-Then run the statements in `flink/setup_queries.sql` in the Flink SQL workspace,
-pasting the printed artifact id + version into the
-`USING JAR 'confluent-artifact://…'` line. `agent_results_completed` is not
-created there — it comes from the schema registered in step 1.
+Then run the statements in `flink/setup_queries.sql` (easiest in
+`confluent flink shell --compute-pool <lfcp-…>`), pasting the printed artifact
+id + version into the `USING JAR 'confluent-artifact://…'` line. The
+`agent.results.completed` table is inferred from the schema registered in step 1;
+the `ALTER TABLE … MODIFY \`key\` STRING` in the file turns its raw key column
+from `VARBINARY` into a usable `STRING`.
 
 ## Run locally
 
@@ -132,9 +134,6 @@ pytest -q          # unit tests, no Kafka/LLM needed (agent loop is faked)
   timers once the Confluent Cloud runtime supports them.
 - **Tools are mocked** (`_FAKE_CLAIMS` / `_FAKE_POLICIES` in `flinkswarm/tools/`).
   Wire them to the real claim/policy store.
-- **Key format**: workers write the Kafka key as a raw `claim_id` string. If
-  Flink's inferred `agent_results_completed` table disagrees about the key,
-  `ALTER TABLE ... SET ('key.format' = 'raw')`.
 - **Go operator** (later): reconcile `SwarmDeployment` → Deployments + KEDA
   ScaledObjects + the Flink statement. `agent-spec.yaml` is already shaped for it.
 ```

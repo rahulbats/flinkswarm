@@ -85,6 +85,8 @@ class ResultCompleted:
 class SynthesisReady:
     """Emitted by the Flink barrier to `agent.synthesis.ready` (key = claim_id).
 
+    The value schema for this topic is owned by the Flink `CREATE TABLE`, so
+    this schema is only used for permissive read-side validation — keep it lax.
     `aggregated_payload` is a JSON string built by AgentBarrierAggregator.
     """
 
@@ -96,12 +98,10 @@ class SynthesisReady:
             "$schema": _DRAFT7,
             "title": "SynthesisReady",
             "type": "object",
-            "additionalProperties": False,
             "properties": {
                 "claim_id": {"type": "string"},
                 "aggregated_payload": {"type": "string"},
             },
-            "required": ["claim_id", "aggregated_payload"],
         }
     )
 

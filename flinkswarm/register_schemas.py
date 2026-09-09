@@ -17,14 +17,15 @@ import sys
 from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 
 from .config import SchemaRegistrySettings, SwarmSpec
-from .events import DecisionFinal, ResultCompleted, SynthesisReady, TaskDispatched
+from .events import DecisionFinal, ResultCompleted, TaskDispatched
 
 
 def _subjects(spec: SwarmSpec) -> dict[str, type]:
+    # agent.synthesis.ready is owned by the Flink CREATE TABLE, so its value
+    # schema is registered by Flink, not here.
     return {
         f"{spec.topics.tasks}-value": TaskDispatched,
         f"{spec.topics.results}-value": ResultCompleted,
-        f"{spec.topics.synthesis}-value": SynthesisReady,
         f"{spec.topics.decisions}-value": DecisionFinal,
     }
 

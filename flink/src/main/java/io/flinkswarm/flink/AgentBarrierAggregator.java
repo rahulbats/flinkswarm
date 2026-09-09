@@ -14,26 +14,31 @@ import org.apache.flink.types.Row;
 /**
  * Barrier / scatter-gather aggregator for FlinkSwarm (Flink 2.0 PTF).
  *
- * <p>Partitioned by claim_id. Buffers one result row per sub-agent in keyed PTF
- * state and emits a single aggregated JSON payload once {@code expected_agents}
- * distinct agents have reported. That output row is the "all workers done for
- * this claim" signal the orchestrator consumes.
+ * <p>Partitioned by the Kafka message key (`key` column = claim_id). Buffers one
+ * result row per sub-agent in keyed PTF state and emits a single aggregated JSON
+ * payload once {@code expected_agents} distinct agents have reported. That output
+ * row is the "all workers done for this claim" signal the orchestrator consumes.
+ *
+ * <p>Output: `key` (the claim_id, becomes the Kafka key again) + `claim_id`
+ * (same value, kept in the message value so it is self-contained) +
+ * `aggregated_payload` (a JSON string).
  *
  * <p>SQL:
  * <pre>
- * INSERT INTO agent_synthesis_ready
- * SELECT claim_id, aggregated_payload
+ * INSERT INTO `agent.synthesis.ready`
+ * SELECT `key`, claim_id, aggregated_payload
  * FROM TABLE(AgentBarrierAggregator(
- *   input           => TABLE agent_results_completed PARTITION BY claim_id,
+ *   input           => TABLE `agent.results.completed` PARTITION BY `key`,
  *   expected_agents => 2,
  *   uid             => 'flinkswarm-barrier-v1'));
  * </pre>
  *
- * <p>Note: Flink 2.0 PTF has no timer API, so a hard timeout for a stuck agent
- * is enforced by the orchestrator (deadline on the wait), not here. PTF timers
- * arrive in Flink 2.1 — revisit once the Confluent Cloud runtime supports them.
+ * <p>Flink 2.0 PTF has no timer API, so there is no timeout: a claim where an
+ * agent never reports stays buffered. Workers always emit a result row (even on
+ * failure), so only a hard crash / lost message stalls a claim.
  */
-@FunctionHint(output = @DataTypeHint("ROW<claim_id STRING, aggregated_payload STRING>"))
+@FunctionHint(
+    output = @DataTypeHint("ROW<`key` STRING, `claim_id` STRING, `aggregated_payload` STRING>"))
 public class AgentBarrierAggregator extends ProcessTableFunction<Row> {
 
     public static class BarrierState {
@@ -52,7 +57,7 @@ public class AgentBarrierAggregator extends ProcessTableFunction<Row> {
             return; // straggler after the barrier already fired for this key
         }
 
-        String claimId = input.getFieldAs("claim_id");
+        String claimId = input.getFieldAs("key"); // partition key == claim_id
         String agentName = input.getFieldAs("agent_name");
         String status = input.getFieldAs("status");
         String result = input.getFieldAs("result");
@@ -64,7 +69,8 @@ public class AgentBarrierAggregator extends ProcessTableFunction<Row> {
 
         int expected = (expectedAgents == null || expectedAgents <= 0) ? 1 : expectedAgents;
         if (state.responses.size() >= expected) {
-            collect(Row.of(state.claimId, buildPayload(state)));
+            String payload = buildPayload(state);
+            collect(Row.of(state.claimId, state.claimId, payload));
             state.emitted = true;
             state.responses = new TreeMap<>();
         }
