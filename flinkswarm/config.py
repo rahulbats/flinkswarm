@@ -9,7 +9,9 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from cwd if present, else the copy next to the repo root.
+if not load_dotenv():
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 # --------------------------------------------------------------------------- #
