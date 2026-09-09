@@ -50,7 +50,7 @@ then synthesizes a decision — once per claim.
 | `flink/setup_queries.sql` | Confluent Cloud Flink: the pure-SQL upsert barrier |
 | `flink/ptf-open-source-only/` | PTF barrier for open-source Flink (unsupported on Confluent Cloud) |
 | `k8s/` | Deployment + KEDA ScaledObject (lag-based autoscaling) |
-| `scripts/` | `create_topics.sh`, `run_swarm.sh` |
+| `scripts/` | `worker.sh` · `orchestrator.sh` · `dispatch.sh` · `watch.sh` · `create_topics.sh` |
 
 ## Prerequisites
 
@@ -112,15 +112,26 @@ nothing to create. Check the barrier with `confluent flink statement describe fs
 
 ## Run locally
 
+**Demo layout — one process per pane** (each script prints a banner, then that
+component's log — clean to narrate):
+
+| Pane | Command | Does |
+|---|---|---|
+| 1 | `scripts/worker.sh ClaimDataAgent` | consumes `tasks.dispatched` → `results.completed` |
+| 2 | `scripts/worker.sh PolicyDocAgent` | same, its own consumer group |
+| 3 | `scripts/orchestrator.sh` | consumes `synthesis.ready` → `decisions.final` |
+| 4 | `scripts/dispatch.sh CLM-1001` | kicks off one claim |
+| 5 | `scripts/watch.sh decisions` | tails the final decision topic |
+
+Add `LLM_LOG_PROMPTS=1` in front of a `worker.sh` / `orchestrator.sh` to print
+every model request and response in that pane.
+
+**One-shot** (all three in the background, multiplexed):
+
 ```bash
-./scripts/run_swarm.sh        # 2 workers + orchestrator serve loop
-
-# in another shell:
-python -m flinkswarm.orchestrator dispatch \
-    --claim CLM-1001 --prompt "Adjudicate coverage for claim CLM-1001."
+./scripts/run_swarm.sh
+scripts/dispatch.sh CLM-1001
 ```
-
-Watch `agent.decisions.final` with `confluent kafka topic consume agent.decisions.final -b`.
 
 ## Tests
 
