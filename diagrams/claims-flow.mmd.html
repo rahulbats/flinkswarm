@@ -1,0 +1,50 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+  body{margin:0;background:#fff;font-family:"Helvetica Neue",Arial,sans-serif}
+  #wrap{padding:28px;display:inline-block}
+  #wrap svg{width:2560px !important;height:auto !important}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+</head>
+<body>
+<div id="wrap">
+<pre class="mermaid">
+flowchart LR
+    D["<b>Dispatch</b><br/><span style='font-size:15px;color:#5b636f'>orchestrator &middot; new claim</span>"]:::svc
+    T1[("<b>agent.tasks<br/>.dispatched</b>")]:::topic
+    A1["<b>ClaimDataAgent</b><br/><span style='font-size:15px;color:#5b636f'>get_claim_from_cosmos</span>"]:::agent
+    A2["<b>PolicyDocAgent</b><br/><span style='font-size:15px;color:#5b636f'>get_policy_from_blob</span>"]:::agent
+    T2[("<b>agent.results<br/>.completed</b>")]:::topic
+    F["<b>Flink SQL &mdash; barrier</b><br/><span style='font-size:15px;color:#5b636f'>GROUP BY claim_id<br/>wait for all N agents</span>"]:::flink
+    T3[("<b>agent.synthesis<br/>.ready</b>")]:::topic
+    O["<b>Coverage Orchestrator</b><br/><span style='font-size:15px;color:#5b636f'>LLM synthesis &middot; rules &times; facts</span>"]:::svc
+    T4[("<b>agent.decisions<br/>.final</b>")]:::topic
+
+    D --> T1
+    T1 -->|"own consumer group"| A1
+    T1 -->|"own consumer group"| A2
+    A1 --> T2
+    A2 --> T2
+    T2 --> F
+    F -->|"one row per claim"| T3
+    T3 -->|"gate: all agents in"| O
+    O -->|"COVERED / PARTIAL / DENIED"| T4
+
+    classDef topic fill:#0c8f83,stroke:#0a6f66,color:#fff;
+    classDef agent fill:#eef2ff,stroke:#2f5fe6,color:#16204a;
+    classDef svc fill:#f1f3f5,stroke:#5b636f,color:#1b1f27;
+    classDef flink fill:#e6faf7,stroke:#0c8f83,color:#0a3b36,stroke-width:2.5px;
+</pre>
+</div>
+<script>
+  mermaid.initialize({
+    startOnLoad:true, theme:"base", securityLevel:"loose",
+    flowchart:{curve:"basis", htmlLabels:true, nodeSpacing:55, rankSpacing:85, padding:14},
+    themeVariables:{
+      fontFamily:"Helvetica Neue, Arial, sans-serif", fontSize:"20px",
+      lineColor:"#9aa1ac", primaryTextColor:"#1b1f27",
+      edgeLabelBackground:"#ffffff"
+    }
+  });
+</script>
+</body></html>

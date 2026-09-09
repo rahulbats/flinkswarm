@@ -1,0 +1,51 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+  body{margin:0;background:#fff;font-family:"Helvetica Neue",Arial,sans-serif}
+  #wrap{padding:28px;display:inline-block}
+  #wrap svg{width:1500px !important;height:auto !important}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+</head>
+<body>
+<div id="wrap">
+<pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant U as Dispatch
+    participant K as Kafka
+    participant CA as ClaimDataAgent
+    participant PA as PolicyDocAgent
+    participant FL as Flink (barrier)
+    participant OR as Orchestrator
+
+    U->>K: agent.tasks.dispatched — key=CLM-1001
+    par facts
+        K-->>CA: task CLM-1001
+        CA->>CA: get_claim_from_cosmos("CLM-1001")
+        CA->>K: agent.results.completed — "burst supply line, $8,200"
+    and rules
+        K-->>PA: task CLM-1001
+        PA->>PA: get_policy_from_blob("CLM-1001")
+        PA->>K: agent.results.completed — "HO-3, SEC-II-A, $1,000 deductible"
+    end
+    K-->>FL: both results for CLM-1001
+    FL->>K: agent.synthesis.ready — agent_count=2, both findings
+    K-->>OR: synthesis row (all agents in)
+    OR->>OR: LLM synthesis — apply rules to facts
+    OR->>K: agent.decisions.final — COVERED, $7,200 payable
+</pre>
+</div>
+<script>
+  mermaid.initialize({
+    startOnLoad:true, theme:"base", securityLevel:"loose",
+    sequence:{ actorMargin:70, width:150, mirrorActors:false, messageFontSize:15, actorFontSize:16 },
+    themeVariables:{
+      fontFamily:"Helvetica Neue, Arial, sans-serif",
+      primaryColor:"#eef2ff", primaryBorderColor:"#2f5fe6", primaryTextColor:"#16204a",
+      actorBkg:"#0c8f83", actorTextColor:"#ffffff", actorBorder:"#0a6f66",
+      signalColor:"#5b636f", signalTextColor:"#1b1f27",
+      noteBkgColor:"#e6faf7", noteBorderColor:"#0c8f83"
+    }
+  });
+</script>
+</body></html>
