@@ -1,0 +1,441 @@
+<title>Agentic AI Workflows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --paper:#fbfaf7; --surface:#ffffff; --ink:#191b1f; --muted:#63676e;
+    --hair:#e2ded6; --accent:#0f7367; --accent-weak:#e4f1ef;
+    --pos:#0f7367; --neg:#a8552f; --code-bg:#f0efe9;
+    --shadow:0 1px 2px rgba(20,22,26,.05), 0 14px 34px -14px rgba(20,22,26,.16);
+    --stage-w:min(1180px, 94vw);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0f1214; --surface:#171a1d; --ink:#e9eae7; --muted:#99a0a7;
+      --hair:#2a2e33; --accent:#41c3b3; --accent-weak:#15302d;
+      --pos:#41c3b3; --neg:#d98b6a; --code-bg:#1b1f22;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -16px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0f1214; --surface:#171a1d; --ink:#e9eae7; --muted:#99a0a7;
+    --hair:#2a2e33; --accent:#41c3b3; --accent-weak:#15302d;
+    --pos:#41c3b3; --neg:#d98b6a; --code-bg:#1b1f22;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -16px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, sans-serif; -webkit-font-smoothing:antialiased;
+  }
+
+  .deck{height:100dvh; overflow-y:scroll; scroll-snap-type:y mandatory}
+  .slide{
+    min-height:100dvh; scroll-snap-align:start;
+    display:grid; place-items:center; padding:3dvh 1rem 4dvh;
+  }
+  .stage{
+    width:var(--stage-w); aspect-ratio:16/9;
+    background:var(--surface); border:1px solid var(--hair); border-radius:12px;
+    box-shadow:var(--shadow);
+    padding:clamp(1.5rem,3.3vw,3rem) clamp(1.8rem,4vw,3.6rem);
+    display:flex; flex-direction:column; gap:1.05rem; position:relative; overflow:visible;
+  }
+  @media (max-height:720px){ .stage{aspect-ratio:auto} }
+
+  .eyebrow{
+    font-family:"IBM Plex Mono", monospace; font-size:.72rem; font-weight:500;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--accent);
+    display:flex; align-items:center; gap:.7rem;
+  }
+  .eyebrow::before{content:""; width:1.7rem; height:2px; background:var(--accent)}
+
+  h1{
+    font-weight:700; letter-spacing:-.02em; text-wrap:balance; margin:0;
+    font-size:clamp(2.2rem,5.8vw,4rem); line-height:1.03;
+  }
+  h2{
+    font-weight:600; letter-spacing:-.015em; text-wrap:balance; margin:0;
+    font-size:clamp(1.55rem,3.7vw,2.5rem); line-height:1.1;
+  }
+  .sub{font-size:clamp(1rem,1.7vw,1.35rem); color:var(--muted); margin:.6rem 0 0; font-weight:400}
+
+  .fill{flex:1; display:flex; flex-direction:column; justify-content:center; gap:1rem; min-height:0}
+
+  ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.7rem}
+  li{
+    position:relative; padding-left:1.4rem; line-height:1.5;
+    font-size:clamp(.95rem,1.45vw,1.12rem);
+  }
+  li::before{
+    content:""; position:absolute; left:0; top:.62em; width:7px; height:2px; background:var(--accent);
+  }
+  li ul{margin-top:.55rem; gap:.45rem}
+  li li{font-size:.95em; color:var(--muted)}
+  li li::before{background:var(--muted)}
+
+  .mono{font-family:"IBM Plex Mono", monospace}
+  strong{font-weight:600}
+  .k{font-family:"IBM Plex Mono", monospace; color:var(--accent); font-weight:500}
+
+  /* two-column option layout */
+  .cols{display:grid; grid-template-columns:1fr 1fr; gap:1.6rem 2.4rem; align-items:start}
+  .opt h3{
+    font-size:1.02rem; font-weight:600; margin:0 0 .2rem;
+  }
+  .opt .src{font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:.55rem}
+  .pc{display:flex; flex-direction:column; gap:.5rem; margin-top:.5rem}
+  .pc div{font-size:.92rem; line-height:1.45; padding-left:2.4rem; position:relative}
+  .pc .tag{
+    position:absolute; left:0; top:.05em; font-family:"IBM Plex Mono",monospace;
+    font-size:.62rem; letter-spacing:.06em; font-weight:500;
+  }
+  .pc .pro .tag{color:var(--pos)}
+  .pc .con .tag{color:var(--neg)}
+  .pc .pro{color:var(--ink)}
+  .pc .con{color:var(--muted)}
+
+  a{color:var(--accent)}
+  .link{font-size:.8rem; word-break:break-all}
+
+  .spec{
+    background:var(--code-bg); border-radius:8px; padding:.9rem 1.1rem;
+    font-family:"IBM Plex Mono",monospace; font-size:.8rem; line-height:1.7;
+    white-space:pre-wrap; color:var(--ink);
+  }
+
+  figure{margin:0; flex:1; display:flex; flex-direction:column; gap:.5rem; min-height:0}
+  figure svg{width:100%; height:100%; flex:1; min-height:0; color:var(--ink)}
+  figcaption{font-size:.82rem; color:var(--muted); line-height:1.4}
+
+  .num{
+    position:absolute; top:1.1rem; right:1.5rem;
+    font-family:"IBM Plex Mono",monospace; font-size:.72rem; color:var(--muted); letter-spacing:.08em;
+  }
+  .foot{
+    position:absolute; bottom:1.1rem; left:1.5rem; right:1.5rem;
+    display:flex; justify-content:space-between;
+    font-family:"IBM Plex Mono",monospace; font-size:.66rem; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted);
+  }
+
+  .railwrap{position:fixed; left:0; right:0; bottom:0; height:3px; background:var(--hair); z-index:20}
+  .rail{height:100%; background:var(--accent); width:0; transition:width .25s ease}
+  @media (prefers-reduced-motion: reduce){.rail{transition:none}}
+  .hint{
+    position:fixed; bottom:13px; right:15px; z-index:20;
+    font-family:"IBM Plex Mono",monospace; font-size:.64rem; color:var(--muted);
+    background:var(--surface); border:1px solid var(--hair); border-radius:999px; padding:.28rem .66rem;
+  }
+  :focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+</style>
+
+<div class="deck" id="deck">
+
+  <!-- 1 -->
+  <section class="slide">
+    <div class="stage" style="justify-content:center; gap:1.4rem">
+      <span class="num">01 / 10</span>
+      <div class="eyebrow">Solutions Engineering</div>
+      <h1>Agentic AI workflows</h1>
+      <p class="sub">Using asynchronous, distributed agents on an event backbone</p>
+      <div class="foot"><span>Kafka &amp; Flink</span><span>Claims adjudication</span></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">02 / 10</span>
+      <div class="eyebrow">Background</div>
+      <h2>What are agents</h2>
+      <ul class="fill">
+        <li>Unlike an LLM on its own, an agent can <strong>take actions</strong></li>
+        <li>An agent is a wrapper around an LLM with <strong>tools, instructions, skills, and a knowledge base</strong></li>
+        <li>Every call to the LLM carries the tools and instructions; the LLM replies with which tool to run. The agent runs it, feeds the result back, and the loop repeats until the task is done</li>
+        <li><strong>Isolation matters.</strong> Too many tools overwhelm the LLM context and cause hallucinations</li>
+        <li>Each agent should run in its own <strong>sandbox</strong> to contain security risk</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">03 / 10</span>
+      <div class="eyebrow">The customer</div>
+      <h2>A P&amp;C insurer digitizing claims adjudication</h2>
+      <ul class="fill">
+        <li>A <strong>Property &amp; Casualty</strong> carrier settling millions of dollars in claims at very high annual volume</li>
+        <li>Adjusters read hundreds of pages per claim and research its merits by hand &mdash; <strong>slow and error-prone</strong></li>
+        <li><strong>Strategic goal:</strong> digitize claims review and approval &mdash; cut cost and decision time</li>
+        <li>Approach: AI agents that <strong>approve / deny / semi-approve</strong> a claim</li>
+        <li>Simplified for this talk &mdash; three agents:
+          <ul>
+            <li><span class="k">Claims Agent</span> &mdash; looks up the claims database for claim details</li>
+            <li><span class="k">Policy Agent</span> &mdash; looks up the object store for the policyholder's policy</li>
+            <li><span class="k">Coverage Orchestrator</span> &mdash; adjudicates from both agents' outputs</li>
+          </ul>
+        </li>
+        <li>Each agent runs in its own isolated machine / sandbox &mdash; for parallelism and to contain security risk</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">04 / 10</span>
+      <div class="eyebrow">The design</div>
+      <h2>Flow</h2>
+      <figure>
+        <svg viewBox="0 0 1180 300" role="img" aria-label="A claim is dispatched to a topic; the Claim Agent and Policy Agent consume it in parallel and look up their stores; both write to an analysis-ready topic; Flink aggregates per claim; once both agents are in, the orchestrator agent runs the LLM verdict and writes the final decision topic">
+          <defs>
+            <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker>
+            <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker>
+          </defs>
+
+          <!-- claim -->
+          <rect x="14" y="128" width="78" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="53" y="152" text-anchor="middle" font-size="12" fill="currentColor">Claim</text>
+          <line x1="92" y1="148" x2="140" y2="148" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <!-- dispatch topic -->
+          <rect x="142" y="126" width="118" height="44" rx="22" fill="var(--accent-weak)" stroke="var(--accent)" stroke-width="1.3"/>
+          <text x="201" y="144" text-anchor="middle" font-size="11" fill="currentColor">dispatch</text>
+          <text x="201" y="158" text-anchor="middle" font-size="11" fill="currentColor">claim topic</text>
+
+          <!-- fan out -->
+          <path d="M260 138 C 292 138 296 66 320 66" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+          <path d="M260 158 C 292 158 296 230 320 230" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <!-- claim agent -->
+          <rect x="322" y="46" width="118" height="42" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="381" y="72" text-anchor="middle" font-size="12" fill="currentColor">Claim Agent</text>
+          <!-- claims db -->
+          <path d="M470 44 h84 v40 a42 6 0 0 1 -84 0 v-40 a42 6 0 0 1 84 0 a42 6 0 0 1 -84 0" fill="none" stroke="var(--muted)" stroke-width="1.2"/>
+          <text x="512" y="70" text-anchor="middle" font-size="10.5" fill="var(--muted)">Claims DB</text>
+          <path d="M440 60 L468 60" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ad)"/>
+          <text x="454" y="52" text-anchor="middle" font-size="9" fill="var(--muted)">lookup</text>
+
+          <!-- policy agent -->
+          <rect x="322" y="210" width="118" height="42" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="381" y="236" text-anchor="middle" font-size="12" fill="currentColor">Policy Agent</text>
+          <!-- policy store -->
+          <path d="M470 210 h84 v40 a42 6 0 0 1 -84 0 v-40 a42 6 0 0 1 84 0 a42 6 0 0 1 -84 0" fill="none" stroke="var(--muted)" stroke-width="1.2"/>
+          <text x="512" y="228" text-anchor="middle" font-size="10" fill="var(--muted)">Policy</text>
+          <text x="512" y="240" text-anchor="middle" font-size="10" fill="var(--muted)">store</text>
+          <path d="M440 231 L468 231" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ad)"/>
+          <text x="454" y="223" text-anchor="middle" font-size="9" fill="var(--muted)">lookup</text>
+
+          <!-- fan in -->
+          <path d="M440 78 C 520 78 540 138 588 138" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+          <path d="M440 220 C 520 220 540 160 588 160" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <!-- analysis ready topic -->
+          <rect x="590" y="126" width="120" height="46" rx="23" fill="var(--accent-weak)" stroke="var(--accent)" stroke-width="1.3"/>
+          <text x="650" y="144" text-anchor="middle" font-size="11" fill="currentColor">analysis</text>
+          <text x="650" y="158" text-anchor="middle" font-size="11" fill="currentColor">ready topic</text>
+
+          <line x1="710" y1="149" x2="752" y2="149" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <!-- flink -->
+          <rect x="754" y="122" width="150" height="54" rx="6" fill="none" stroke="var(--accent)" stroke-width="1.8"/>
+          <text x="829" y="143" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">Flink</text>
+          <text x="829" y="159" text-anchor="middle" font-size="9.5" fill="var(--muted)">group-by / aggregate on claim</text>
+
+          <!-- diamond -->
+          <path d="M960 149 L998 123 L1036 149 L998 175 z" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="998" y="146" text-anchor="middle" font-size="8.5" fill="currentColor">both agents</text>
+          <text x="998" y="157" text-anchor="middle" font-size="8.5" fill="currentColor">completed?</text>
+          <line x1="904" y1="149" x2="958" y2="149" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <!-- orchestrator -->
+          <rect x="1044" y="106" width="122" height="86" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="1105" y="140" text-anchor="middle" font-size="11" fill="currentColor">Orchestrator</text>
+          <text x="1105" y="154" text-anchor="middle" font-size="11" fill="currentColor">Agent</text>
+          <text x="1105" y="172" text-anchor="middle" font-size="8.5" fill="var(--muted)">LLM verdict</text>
+          <line x1="1036" y1="149" x2="1042" y2="149" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <!-- final decision -->
+          <path d="M1105 192 L1105 220" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+          <rect x="1040" y="222" width="130" height="42" rx="21" fill="var(--accent-weak)" stroke="var(--accent)" stroke-width="1.3"/>
+          <text x="1105" y="248" text-anchor="middle" font-size="11" fill="currentColor">final decision topic</text>
+        </svg>
+        <figcaption>
+          The agents never call each other or the orchestrator &mdash; they only produce to and consume from topics.
+          Flink does the fan-in; once both agents are in, the orchestrator runs the LLM that reads the claim and the policy to decide.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">05 / 10</span>
+      <div class="eyebrow">Existing options &mdash; 1 of 2</div>
+      <h2>Hyperscaler agent platforms</h2>
+      <div class="cols fill">
+        <div class="opt">
+          <h3>Managed agents</h3>
+          <span class="src">Foundry Agent Service · Bedrock AgentCore</span>
+          <div class="pc">
+            <div class="pro"><span class="tag">PRO</span>Runs on cloud infra with micro-VM sandboxes for isolation</div>
+            <div class="pro"><span class="tag">PRO</span>Very low code and operational overhead</div>
+            <div class="con"><span class="tag">CON</span>Black box and vendor lock-in</div>
+            <div class="con"><span class="tag">CON</span>Severe regional capacity limits &mdash; forcing customers to run workloads outside their primary business region</div>
+          </div>
+        </div>
+        <div class="opt">
+          <h3>Self-hosted agents</h3>
+          <span class="src">agent framework, run yourself</span>
+          <div class="pc">
+            <div class="pro"><span class="tag">PRO</span>Full control over what the agent does</div>
+            <div class="pro"><span class="tag">PRO</span>Fine when the use case is simple</div>
+            <div class="con"><span class="tag">CON</span>You lose sandbox isolation and the other managed benefits</div>
+            <div class="con"><span class="tag">CON</span>The workflow API does not make it run distributed</div>
+          </div>
+          <a class="link mono" href="https://github.com/rahulbats/workflow-skills-agent-framework-demo/blob/main/demo1_orchestrator_workflow/main.py">github.com/rahulbats/workflow-skills-agent-framework-demo</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">06 / 10</span>
+      <div class="eyebrow">Existing options &mdash; 2 of 2</div>
+      <h2>Orchestration frameworks &mdash; LangGraph, Temporal</h2>
+      <div class="fill">
+        <div class="pc" style="max-width:60ch">
+          <div class="pro"><span class="tag">PRO</span>Strong open-source community</div>
+          <div class="pro"><span class="tag">PRO</span>Workflows are distributed</div>
+          <div class="con"><span class="tag">CON</span>Built around communication <em>between</em> agents &mdash; the workers have to know about and report back to the orchestrator / manager</div>
+        </div>
+        <p class="sub" style="max-width:58ch">
+          The coordination is point-to-point, and the workflow history lives inside one engine &mdash;
+          no other system can subscribe to it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">07 / 10</span>
+      <div class="eyebrow">The proposal</div>
+      <h2>Can Kafka fill this gap?</h2>
+      <ul class="fill">
+        <li>If you already run Kafka for mission-critical event flows, extending it to agent coordination adds <strong>no new system of record</strong></li>
+        <li>Tasks that need parallel or sequential execution are dropped on topics; a distributed swarm of <strong>fully isolated</strong> agents on containers / VMs executes them</li>
+        <li>An agent or service crash simply <strong>resumes from the last committed offset</strong></li>
+        <li>Fan-in is a <strong>Flink aggregation / group-by</strong>; the orchestrator picks up the assembled result and runs the final LLM verdict</li>
+        <li>No point-to-point communication between agents &mdash; the log is the only thing they share, and complex workflows compose without much effort</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">08 / 10</span>
+      <div class="eyebrow">Live</div>
+      <h2>Demo</h2>
+      <div class="cols fill">
+        <ul>
+          <li>Confluent Cloud Kafka + Schema Registry + managed Flink</li>
+          <li>Two worker agents, one consumer group each, against a local model</li>
+          <li>Flink barrier: <span class="k">GROUP BY claim_id</span>, emit when both agents are in</li>
+          <li>Orchestrator consumes the assembled record, runs the LLM, produces the decision</li>
+        </ul>
+        <div>
+          <div class="eyebrow" style="font-size:.62rem; margin-bottom:.5rem">what you'll see</div>
+          <div class="spec">dispatch CLM-1001 (burst pipe, $8,200)
+  → 2 agents run in parallel
+  → Flink row: agent_count = 2
+  → decision: <span class="k">COVERED</span>
+     $8,200 − $1,000 deductible
+     = $7,200 payable</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">09 / 10</span>
+      <div class="eyebrow">Where this goes</div>
+      <h2>Future considerations</h2>
+      <ul class="fill">
+        <li>The demo is <strong>hand-wired</strong> &mdash; an orchestrator and two workers for one use case</li>
+        <li>Describe the swarm instead in an <strong><span class="k">agent-spec.yaml</span></strong></li>
+        <li>A <strong>Kubernetes operator</strong> watches the spec and launches the swarm, using Kafka as the coordination backbone</li>
+        <li>On Kubernetes, <strong>KEDA scales each agent on topic lag</strong> &mdash; swarm capacity follows load, including catastrophe-event spikes</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">10 / 10</span>
+      <div class="eyebrow">Wrap-up</div>
+      <h2>Summary &amp; next steps</h2>
+      <div class="cols fill">
+        <div>
+          <div class="eyebrow" style="font-size:.62rem; margin-bottom:.6rem">the recommendation</div>
+          <ul>
+            <li>Coordinate the agent swarm on the <strong>event backbone you already run</strong></li>
+            <li>Agents stay yours &mdash; your code, your models, isolated</li>
+            <li>Flink does the fan-in; the log is the audit trail</li>
+          </ul>
+        </div>
+        <div>
+          <div class="eyebrow" style="font-size:.62rem; margin-bottom:.6rem">next steps</div>
+          <ul>
+            <li>Scoping workshop on one claim type</li>
+            <li>Access to a claims SME and a non-production data feed</li>
+            <li>Stand up a shadow-mode pilot &mdash; measure decision time and cost</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="railwrap"><div class="rail" id="rail"></div></div>
+<div class="hint">&larr; &rarr; to move</div>
+
+<script>
+  var deck=document.getElementById('deck');
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var rail=document.getElementById('rail');
+  var cur=0;
+  function clamp(n){return Math.max(0,Math.min(slides.length-1,n));}
+  function go(i){cur=clamp(i);
+    slides[cur].scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+    paint();}
+  function paint(){rail.style.width=((cur+1)/slides.length*100)+'%';}
+  var t;
+  deck.addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(function(){
+    var mid=deck.scrollTop+deck.clientHeight/2;
+    for(var i=0;i<slides.length;i++){if(slides[i].offsetTop<=mid&&slides[i].offsetTop+slides[i].offsetHeight>mid){cur=i;break;}}
+    paint();
+  },90);},{passive:true});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='PageDown'||(e.key===' '&&!e.shiftKey)){e.preventDefault();go(cur+1);}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'||(e.key===' '&&e.shiftKey)){e.preventDefault();go(cur-1);}
+    else if(e.key==='Home'){e.preventDefault();go(0);}
+    else if(e.key==='End'){e.preventDefault();go(slides.length-1);}
+  });
+  paint();
+</script>
