@@ -135,7 +135,7 @@ class SwarmSpec:
 
     @classmethod
     def load(cls, path: str | os.PathLike | None = None) -> SwarmSpec:
-        path = Path(path or os.getenv("SWARM_SPEC", "agent-spec.yaml"))
+        path = cls._resolve_path(path)
         doc = yaml.safe_load(path.read_text())
         spec = doc["spec"]
 
@@ -167,6 +167,19 @@ class SwarmSpec:
                 instructions=(orch.get("instructions") or "").strip(),
             ),
         )
+
+    @staticmethod
+    def _resolve_path(path: str | os.PathLike | None) -> Path:
+        if path:
+            return Path(path)
+        env = os.getenv("SWARM_SPEC")
+        if env:
+            return Path(env)
+        cwd = Path("agent-spec.yaml")
+        if cwd.is_file():
+            return cwd
+        # fall back to the copy next to the repo root (parent of this package)
+        return Path(__file__).resolve().parent.parent / "agent-spec.yaml"
 
     def worker(self, name: str) -> WorkerSpec:
         for w in self.workers:
