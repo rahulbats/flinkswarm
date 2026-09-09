@@ -1,0 +1,69 @@
+# Lag-based autoscaling for the worker agents.
+# The SASL secret must be readable by KEDA (TriggerAuthentication below).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: flinkswarm-keda-sasl
+type: Opaque
+stringData:
+  sasl: "plaintext"      # KEDA value for SASL/PLAIN
+  username: "<api-key>"
+  password: "<api-secret>"
+  tls: "enable"
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: flinkswarm-kafka-auth
+spec:
+  secretTargetRef:
+    - parameter: sasl
+      name: flinkswarm-keda-sasl
+      key: sasl
+    - parameter: username
+      name: flinkswarm-keda-sasl
+      key: username
+    - parameter: password
+      name: flinkswarm-keda-sasl
+      key: password
+    - parameter: tls
+      name: flinkswarm-keda-sasl
+      key: tls
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: claim-data-agent-scaler
+spec:
+  scaleTargetRef:
+    name: claim-data-agent
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: pkc-xxxxx.us-east-1.aws.confluent.cloud:9092
+        topic: agent.tasks.dispatched
+        consumerGroup: flinkswarm-ClaimDataAgent
+        lagThreshold: "5"
+      authenticationRef:
+        name: flinkswarm-kafka-auth
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: policy-doc-agent-scaler
+spec:
+  scaleTargetRef:
+    name: policy-doc-agent
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: pkc-xxxxx.us-east-1.aws.confluent.cloud:9092
+        topic: agent.tasks.dispatched
+        consumerGroup: flinkswarm-PolicyDocAgent
+        lagThreshold: "5"
+      authenticationRef:
+        name: flinkswarm-kafka-auth

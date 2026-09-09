@@ -1,0 +1,51 @@
+apiVersion: flinkswarm.io/v1alpha1
+kind: SwarmDeployment
+metadata:
+  name: claim-adjudication-swarm
+spec:
+  kafka:
+    # For Confluent Cloud, leave bootstrapServers empty and use env vars
+    # (KAFKA_BOOTSTRAP_SERVERS / KAFKA_SASL_*). This value is only a fallback.
+    bootstrapServers: ""
+    topics:
+      tasks: "agent.tasks.dispatched"
+      results: "agent.results.completed"
+      synthesis: "agent.synthesis.ready"
+      decisions: "agent.decisions.final"
+
+  flink:
+    barrierKey: "claim_id"
+    timeoutSeconds: 30
+    # UID for the PTF operator state (keep stable across deploys)
+    barrierUid: "flinkswarm-barrier-v1"
+
+  workers:
+    - name: ClaimDataAgent
+      replicas: 2
+      image: "flinkswarm/claim-agent:latest"
+      tools: ["get_claim_from_cosmos"]
+      instructions: >
+        You are the Claim Data agent. Use the get_claim_from_cosmos tool to
+        retrieve the claim record for the given claim_id, then return a concise,
+        accurate, structured summary: claimant, date of loss, amount claimed,
+        line items, and adjuster notes. Do not speculate about coverage.
+
+    - name: PolicyDocAgent
+      replicas: 2
+      image: "flinkswarm/policy-agent:latest"
+      tools: ["get_policy_from_blob"]
+      instructions: >
+        You are the Policy Document agent. Use the get_policy_from_blob tool to
+        retrieve the governing policy for the given claim_id, then return the
+        relevant coverage sections, limits, deductibles, and exclusions that
+        could apply. Quote clause numbers where possible.
+
+  orchestrator:
+    name: CoverageOrchestrator
+    image: "flinkswarm/orchestrator:latest"
+    instructions: >
+      You are the Coverage Orchestrator. You receive a JSON payload with the
+      outputs of every sub-agent for one claim. Adjudicate: state whether the
+      claim is COVERED, PARTIALLY COVERED, or NOT COVERED, cite the controlling
+      policy clause(s), compute the payable amount net of deductible, and list
+      any follow-ups required before payment.

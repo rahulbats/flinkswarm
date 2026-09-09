@@ -1,0 +1,110 @@
+# Hand-written for now; the Go operator will generate this from agent-spec.yaml.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: flinkswarm-kafka
+type: Opaque
+stringData:
+  KAFKA_BOOTSTRAP_SERVERS: "pkc-xxxxx.us-east-1.aws.confluent.cloud:9092"
+  KAFKA_SASL_USERNAME: "<api-key>"
+  KAFKA_SASL_PASSWORD: "<api-secret>"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flinkswarm-env
+data:
+  KAFKA_SECURITY_PROTOCOL: "SASL_SSL"
+  KAFKA_SASL_MECHANISM: "PLAIN"
+  MLX_BASE_URL: "http://mlx.default.svc.cluster.local:10240/v1"
+  MLX_MODEL: "mlx-community/Qwen2.5-7B-Instruct-4bit"
+  SWARM_SPEC: "/etc/flinkswarm/agent-spec.yaml"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claim-data-agent
+  labels: { app: claim-data-agent, swarm: claim-adjudication-swarm }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: claim-data-agent }
+  template:
+    metadata:
+      labels: { app: claim-data-agent }
+    spec:
+      containers:
+        - name: worker
+          image: flinkswarm/claim-agent:latest
+          command: ["python", "-m", "flinkswarm.worker"]
+          env:
+            - name: AGENT_NAME
+              value: "ClaimDataAgent"
+          envFrom:
+            - configMapRef: { name: flinkswarm-env }
+            - secretRef: { name: flinkswarm-kafka }
+          volumeMounts:
+            - name: spec
+              mountPath: /etc/flinkswarm
+      volumes:
+        - name: spec
+          configMap: { name: flinkswarm-spec }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policy-doc-agent
+  labels: { app: policy-doc-agent, swarm: claim-adjudication-swarm }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: policy-doc-agent }
+  template:
+    metadata:
+      labels: { app: policy-doc-agent }
+    spec:
+      containers:
+        - name: worker
+          image: flinkswarm/policy-agent:latest
+          command: ["python", "-m", "flinkswarm.worker"]
+          env:
+            - name: AGENT_NAME
+              value: "PolicyDocAgent"
+          envFrom:
+            - configMapRef: { name: flinkswarm-env }
+            - secretRef: { name: flinkswarm-kafka }
+          volumeMounts:
+            - name: spec
+              mountPath: /etc/flinkswarm
+      volumes:
+        - name: spec
+          configMap: { name: flinkswarm-spec }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coverage-orchestrator
+  labels: { app: coverage-orchestrator, swarm: claim-adjudication-swarm }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: coverage-orchestrator }
+  template:
+    metadata:
+      labels: { app: coverage-orchestrator }
+    spec:
+      containers:
+        - name: orchestrator
+          image: flinkswarm/orchestrator:latest
+          command: ["python", "-m", "flinkswarm.orchestrator", "serve"]
+          envFrom:
+            - configMapRef: { name: flinkswarm-env }
+            - secretRef: { name: flinkswarm-kafka }
+          volumeMounts:
+            - name: spec
+              mountPath: /etc/flinkswarm
+      volumes:
+        - name: spec
+          configMap: { name: flinkswarm-spec }
+# Create the spec ConfigMap with:
+#   kubectl create configmap flinkswarm-spec --from-file=agent-spec.yaml

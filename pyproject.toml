@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flinkswarm"
+version = "0.1.0"
+description = "Event-driven agent swarm on Confluent Kafka with a Flink barrier aggregator"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "confluent-kafka[schemaregistry,json]>=2.5",
+    "openai>=1.40",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.6"]
+
+[project.scripts]
+flinkswarm-worker = "flinkswarm.worker:main"
+flinkswarm-orchestrator = "flinkswarm.orchestrator:main"
+flinkswarm-register-schemas = "flinkswarm.register_schemas:main"
+
+[tool.setuptools.packages.find]
+include = ["flinkswarm*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
