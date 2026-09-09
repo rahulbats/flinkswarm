@@ -132,6 +132,17 @@
     background:var(--surface); border:1px solid var(--hair); border-radius:999px; padding:.28rem .66rem;
   }
   :focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+
+  /* one slide per page when printing / saving to PDF */
+  @page{ size:1280px 720px; margin:0 }
+  @media print{
+    :root{ --shadow:none }
+    html,body{ background:#fff }
+    .deck{ height:auto; overflow:visible; scroll-snap-type:none }
+    .slide{ min-height:0; height:720px; padding:0; display:block; break-after:page; page-break-after:always }
+    .stage{ width:1280px; height:720px; border:none; border-radius:0; box-shadow:none; aspect-ratio:auto }
+    .railwrap,.hint{ display:none }
+  }
 </style>
 
 <div class="deck" id="deck">
