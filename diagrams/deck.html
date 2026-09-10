@@ -205,7 +205,7 @@
       <div class="eyebrow">The design</div>
       <h2>Flow</h2>
       <figure>
-        <svg viewBox="0 0 1180 300" role="img" aria-label="A claim is dispatched to a topic; the Claim Agent and Policy Agent consume it in parallel and look up their stores; both write to an analysis-ready topic; Flink aggregates per claim; once both agents are in, the orchestrator agent runs the LLM verdict and writes the final decision topic">
+        <svg viewBox="0 0 1180 300" role="img" aria-label="A claim is dispatched to a topic; the Claim Agent and Policy Agent consume it in parallel and look up their stores; both write to an analysis-ready topic; a Flink PTF buffers each agent's result per claim and emits once all are in; the orchestrator agent then runs the LLM verdict and writes the final decision topic">
           <defs>
             <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker>
             <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker>
@@ -257,8 +257,8 @@
 
           <!-- flink -->
           <rect x="754" y="122" width="150" height="54" rx="6" fill="none" stroke="var(--accent)" stroke-width="1.8"/>
-          <text x="829" y="143" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">Flink</text>
-          <text x="829" y="159" text-anchor="middle" font-size="9.5" fill="var(--muted)">group-by / aggregate on claim</text>
+          <text x="829" y="143" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">Flink PTF</text>
+          <text x="829" y="159" text-anchor="middle" font-size="9.5" fill="var(--muted)">buffer per agent, emit once all in</text>
 
           <!-- diamond -->
           <path d="M960 149 L998 123 L1036 149 L998 175 z" fill="none" stroke="currentColor" stroke-width="1.4"/>
@@ -348,7 +348,7 @@
         <li>If you already run Kafka for mission-critical event flows, extending it to agent coordination adds <strong>no new system of record</strong></li>
         <li>Tasks that need parallel or sequential execution are dropped on topics; a distributed swarm of <strong>fully isolated</strong> agents on containers / VMs executes them</li>
         <li>An agent or service crash simply <strong>resumes from the last committed offset</strong></li>
-        <li>Fan-in is a <strong>Flink aggregation / group-by</strong>; the orchestrator picks up the assembled result and runs the final LLM verdict</li>
+        <li>Fan-in is a stateful <strong>Flink function (PTF)</strong> that buffers each agent's result and emits one record per claim once all are in &mdash; the orchestrator picks that up and runs the final LLM verdict</li>
         <li>No point-to-point communication between agents &mdash; the log is the only thing they share, and complex workflows compose without much effort</li>
       </ul>
     </div>
@@ -364,14 +364,14 @@
         <ul>
           <li>Confluent Cloud Kafka + Schema Registry + managed Flink</li>
           <li>Two worker agents, one consumer group each, against a local model <b>(qwen-3.8-26B 4bit quantized)</b></li>
-          <li>Flink barrier: <span class="k">GROUP BY claim_id</span>, emit when both agents are in</li>
-          <li>Orchestrator consumes the assembled record, runs the LLM, produces the decision</li>
+          <li>Flink barrier: a <span class="k">ProcessTableFunction</span> partitioned by claim, emits one record per claim once both agents report</li>
+          <li>Orchestrator consumes that record, runs the LLM, produces the decision</li>
         </ul>
         <div>
           <div class="eyebrow" style="font-size:.62rem; margin-bottom:.5rem">what you'll see</div>
           <div class="spec">dispatch CLM-1001 (burst pipe, $8,200)
   &rarr; 2 agents run in parallel
-  &rarr; Flink row: agent_count = 2
+  &rarr; barrier emits 1 record (both findings)
   &rarr; decision: <span class="k">COVERED</span>
      $8,200 &minus; $1,000 deductible
      = $7,200 payable</div>
