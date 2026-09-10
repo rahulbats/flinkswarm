@@ -5,19 +5,16 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>io.flinkswarm</groupId>
-  <artifactId>flinkswarm-flink-udf</artifactId>
-  <version>0.1.0</version>
+  <artifactId>flinkswarm-barrier-ptf</artifactId>
+  <version>0.2.0</version>
   <packaging>jar</packaging>
 
   <properties>
-    <!-- Confluent Cloud Flink rejects artifacts built with a JDK newer than 21.
-         Build with JDK 21 (or 17); the release flag alone is not enough because
-         the jar manifest also records the build JDK version. -->
-    <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <!-- Align with the Confluent Cloud for Apache Flink runtime.
-         ProcessTableFunction (PTF) requires Flink 2.0 or newer. -->
-    <flink.version>2.0.0</flink.version>
+    <!-- Confluent Cloud for Apache Flink runs Flink 2.1; PTFs need 2.1+.
+         Build with JDK 21 (Confluent rejects artifacts built with a newer JDK):
+           JAVA_HOME=$(/usr/libexec/java_home -v 21 || echo /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home) mvn clean package -->
+    <flink.version>2.1.0</flink.version>
   </properties>
 
   <dependencies>
@@ -33,34 +30,30 @@
       <version>${flink.version}</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-core</artifactId>
+      <version>${flink.version}</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 
   <build>
-    <finalName>flinkswarm-flink-udf</finalName>
+    <finalName>flinkswarm-barrier-ptf</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
+          <release>21</release>
+          <!-- REQUIRED for PTFs: without -parameters, registering the function
+               fails with "Unable to extract ... names" for @StateHint objects
+               and named arguments. -->
           <compilerArgs>
             <arg>-parameters</arg>
           </compilerArgs>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-shade-plugin</artifactId>
-        <version>3.5.1</version>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals><goal>shade</goal></goals>
-            <configuration>
-              <createDependencyReducedPom>false</createDependencyReducedPom>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

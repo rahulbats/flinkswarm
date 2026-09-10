@@ -11,14 +11,15 @@ barrier that does scatter/gather across sub-agents.
                                                         │ agent.results.completed
                                                         ▼
                                         ┌───────────────────────────────┐
-                                        │  Flink SQL: GROUP BY claim_id  │
-                                        │  COUNT(DISTINCT agent_name)    │
-                                        │  + LISTAGG(result)  → upsert   │
+                                        │  Flink PTF: AgentBarrier      │
+                                        │  PARTITION BY claim_id         │
+                                        │  keyed state, wait for all N   │
+                                        │  emit ONE row per claim        │
                                         └───────────────┬───────────────┘
-                                                        │ agent.synthesis.ready (upsert)
+                                                        │ agent.synthesis.ready (append)
                                                         ▼
                                             orchestrator (serve)
-                                        acts once agent_count == N, once/claim
+                                          synthesize LLM verdict, once/claim
                                                         │ agent.decisions.final
                                                         ▼
 ```
@@ -26,14 +27,15 @@ barrier that does scatter/gather across sub-agents.
 `claim_id` is the Kafka message key on every topic.
 
 Each worker consumes the **same** task topic under its own consumer group and
-applies its own instructions + tools (from `agent-spec.yaml`). Flink groups
-results per claim and emits a growing upsert row (`agent_count`, concatenated
-findings); the orchestrator waits until `agent_count` equals the worker count,
-then synthesizes a decision — once per claim.
+applies its own instructions + tools (from `agent-spec.yaml`). The Flink
+`ProcessTableFunction` [`AgentBarrier`](flink/ptf/) buffers one result per agent
+in keyed state and emits **exactly one** aggregated row per claim once every
+agent has reported — a clean append stream. The orchestrator consumes that and
+runs the final LLM adjudication.
 
-> The barrier is **pure Flink SQL** because Confluent Cloud for Apache Flink does
-> not support `ProcessTableFunction` (only stateless scalar/table UDFs). A PTF
-> version for open-source Flink is in `flink/ptf-open-source-only/`.
+> Confluent Cloud for Apache Flink runs Flink 2.1 and **does** support PTFs.
+> A pure-SQL `GROUP BY` barrier (emits an upsert row per agent; orchestrator
+> gates on a count) is kept as a documented fallback in `flink/setup_queries.sql`.
 
 ## Layout
 
@@ -47,8 +49,9 @@ then synthesizes a decision — once per claim.
 | `flinkswarm/tools/` | `TOOL_REGISTRY` + `get_claim_from_cosmos`, `get_policy_from_blob` (mocked) |
 | `flinkswarm/worker.py` | `GenericSwarmWorker` — one process per agent |
 | `flinkswarm/orchestrator.py` | `dispatch` (produce task) + `serve` (consume barrier → decide) |
-| `flink/setup_queries.sql` | Confluent Cloud Flink: the pure-SQL upsert barrier |
-| `flink/ptf-open-source-only/` | PTF barrier for open-source Flink (unsupported on Confluent Cloud) |
+| `flink/ptf/` | `AgentBarrier` — the Flink 2.1 PTF barrier (Java) |
+| `flink/create_barrier.sh` | build + upload the PTF, register it, run the barrier statement |
+| `flink/setup_queries.sql` | the same SQL, annotated, + the pure-SQL fallback |
 | `k8s/` | Deployment + KEDA ScaledObject (lag-based autoscaling) |
 | `scripts/` | `worker.sh` · `orchestrator.sh` · `dispatch.sh` · `watch.sh` · `create_topics.sh` |
 
@@ -61,7 +64,7 @@ then synthesizes a decision — once per claim.
 - Schema Registry enabled on the environment (Stream Governance Essentials, free)
   + a Schema Registry API key/secret
 - Confluent Cloud for Apache Flink (a compute pool) for the barrier
-- `confluent` CLI
+- `confluent` CLI, and **JDK 21** + Maven to build the PTF jar
 
 ## Setup
 
@@ -91,24 +94,22 @@ python -m flinkswarm.register_schemas --check   # show what's registered
 
 ### 2. Flink barrier
 
-No jar to build — it's pure SQL. In the Flink shell:
+One script builds the PTF jar, uploads it, registers the function, and creates
+the persistent barrier statement:
 
 ```bash
-confluent flink shell --compute-pool <lfcp-…> --environment <env-…> --database <lkc-…>
+COMPUTE_POOL=lfcp-… DATABASE=lkc-… ENVIRONMENT=env-… flink/create_barrier.sh
 ```
 
-1. `CREATE TABLE \`agent.synthesis.ready\` (…) WITH ('changelog.mode' = 'upsert', …)` — in `confluent flink shell`.
-2. The `INSERT … GROUP BY claim_id` barrier — create it as a **persistent** statement, not in the shell / web workspace (those stop when you disconnect):
+It creates:
+- `CREATE TABLE agent.synthesis.ready` — append, `(claim_id, aggregated_payload)`
+- `CREATE FUNCTION AgentBarrier … USING JAR 'confluent-artifact://…'`
+- `fs-barrier-ptf` — the long-running `INSERT … FROM AgentBarrier(input => TABLE agent.results.completed PARTITION BY key, expectedAgents => 2, …)`
 
-```bash
-confluent flink statement create fs-barrier \
-  --compute-pool <lfcp-…> --database <lkc-…> --environment <env-…> \
-  --wait --property sql.state-ttl='4 hours' \
-  --sql "INSERT INTO \`agent.synthesis.ready\` SELECT \`claim_id\`, COUNT(*) AS \`agent_count\`, LISTAGG(\`agent_name\` || ': ' || \`latest_result\`, ' ||| ') AS \`aggregated_payload\` FROM (SELECT \`claim_id\`, \`agent_name\`, LAST_VALUE(\`result\`) AS \`latest_result\` FROM \`agent.results.completed\` GROUP BY \`claim_id\`, \`agent_name\`) GROUP BY \`claim_id\`;"
-```
-
-`agent.results.completed` is inferred as a table from the registered schema —
-nothing to create. Check the barrier with `confluent flink statement describe fs-barrier`.
+`agent.results.completed` is inferred from the schema you registered in step 1
+(the script's `ALTER TABLE … MODIFY key STRING` makes its raw key column usable).
+Check it: `confluent flink statement describe fs-barrier-ptf`. Details and the
+pure-SQL fallback are in [flink/setup_queries.sql](flink/setup_queries.sql).
 
 ## Run locally
 
@@ -141,11 +142,11 @@ pytest -q          # unit tests, no Kafka/LLM needed (agent loop is faked)
 
 ## Notes / TODO
 
-- **Barrier timeout / unbounded state**: the `GROUP BY claim_id` keeps one state
-  entry per claim forever, and a claim where an agent never reports never
-  advances. Set a statement state TTL (`SET 'sql.state-ttl' = '4 hours';` before
-  the INSERT) so stale claims are GC'd. Workers always emit a result row (even on
-  failure), so only a hard crash / lost message stalls a claim.
+- **Barrier timeout**: `AgentBarrier` clears its state when it emits, so state =
+  only in-flight claims (the statement also carries `sql.state-ttl='4 hours'`).
+  A claim where an agent never reports still stalls, though — the PTF should
+  register a Flink 2.1 timer and emit a `"partial": true` payload on timeout
+  (the orchestrator already handles that field). See `flink/ptf/README.md`.
 - **Orchestrator dedupe** is an in-memory `set` of decided claim_ids — decisions
   can be re-emitted after an orchestrator restart. Make `agent.decisions.final`
   the source of truth if that matters.

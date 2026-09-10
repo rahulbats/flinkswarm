@@ -10,7 +10,7 @@ from flinkswarm.events import (
     loads,
 )
 from flinkswarm.llm import Agent, Tool
-from flinkswarm.orchestrator import _split_decision
+from flinkswarm.orchestrator import _claim_id_of, _format_findings, _split_decision
 from flinkswarm.tools import TOOL_REGISTRY
 
 
@@ -64,13 +64,31 @@ def test_event_schemas_are_valid_json():
         assert "claim_id" in schema["properties"]
 
 
+_PTF_PAYLOAD = json.dumps(
+    {
+        "claim_id": "CLM-1",
+        "partial": False,
+        "results": {"ClaimDataAgent": "burst pipe, $8,200", "PolicyDocAgent": "SEC-II-A covers it"},
+    }
+)
+
+
 def test_synthesis_and_decision_events():
-    s = loads(SynthesisReady, dumps(SynthesisReady(agent_count=2, aggregated_payload="ClaimDataAgent: ok ||| PolicyDocAgent: ok")))
-    assert s.agent_count == 2
-    assert "PolicyDocAgent" in s.aggregated_payload
-    assert s.claim_id == ""  # filled from the Kafka key by the orchestrator
+    s = loads(SynthesisReady, dumps(SynthesisReady(claim_id="CLM-1", aggregated_payload=_PTF_PAYLOAD)))
+    assert s.claim_id == "CLM-1"
     dec = loads(DecisionFinal, dumps(DecisionFinal("CLM-1", "COVERED", "because")))
     assert dec.tool_calls == []
+
+
+def test_orchestrator_parses_ptf_payload():
+    assert _claim_id_of(_PTF_PAYLOAD) == "CLM-1"
+    blocks, partial = _format_findings(_PTF_PAYLOAD)
+    assert "--- ClaimDataAgent ---" in blocks
+    assert "--- PolicyDocAgent ---" in blocks
+    assert partial is False
+    # tolerate a non-JSON payload
+    b2, p2 = _format_findings("just text")
+    assert "just text" in b2 and p2 is False
 
 
 class _FakeCompletions:

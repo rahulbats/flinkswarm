@@ -363,7 +363,7 @@
       <div class="cols fill">
         <ul>
           <li>Confluent Cloud Kafka + Schema Registry + managed Flink</li>
-          <li>Two worker agents, one consumer group each, against a local model(qwen-3.8-26B 4bit quantized)</li>
+          <li>Two worker agents, one consumer group each, against a local model <b>(qwen-3.8-26B 4bit quantized)</b></li>
           <li>Flink barrier: <span class="k">GROUP BY claim_id</span>, emit when both agents are in</li>
           <li>Orchestrator consumes the assembled record, runs the LLM, produces the decision</li>
         </ul>

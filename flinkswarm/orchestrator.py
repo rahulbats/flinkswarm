@@ -24,7 +24,6 @@ from confluent_kafka import KafkaError
 from .config import KafkaSettings, LLMSettings, SchemaRegistrySettings, SwarmSpec
 from .events import DecisionFinal, SynthesisReady, TaskDispatched
 from .kafka import (
-    KeyCodec,
     ValueCodec,
     build_consumer,
     build_producer,
@@ -75,13 +74,12 @@ class OrchestratorService:
         sr = SchemaRegistrySettings.from_env()
         sr_client = schema_registry_client(sr)
         self._synthesis_codec = ValueCodec(SynthesisReady, sr, sr_client)
-        self._synthesis_key = KeyCodec(sr, sr_client)
         self._decision_codec = ValueCodec(DecisionFinal, sr, sr_client)
         logger.info("orchestrator schema registry: %s", "on" if sr.enabled else "off (plain JSON)")
 
-        # The Flink barrier emits an upsert stream — one growing row per claim.
-        # We act once every worker has reported, and only once per claim.
-        self._expected = self.spec.expected_agent_count
+        # The Flink PTF barrier emits exactly one append row per claim once all
+        # agents have reported. `_decided` guards against a re-emit if a worker
+        # somehow produces a second result for a claim.
         self._decided: set[str] = set()
         self._stop = asyncio.Event()
 
@@ -89,10 +87,12 @@ class OrchestratorService:
         self._stop.set()
 
     async def _synthesize(self, event: SynthesisReady) -> None:
+        blocks, partial = _format_findings(event.aggregated_payload)
+        note = " Some agents did not report before the barrier timed out." if partial else ""
         prompt = (
             f"Claim {event.claim_id}. The sub-agent findings follow, one block "
-            f"per agent. Produce a single JSON object with keys `decision` and "
-            f"`rationale`.\n\n{event.aggregated_payload}"
+            f"per agent.{note} Produce a single JSON object with keys `decision` "
+            f"and `rationale`.\n\n{blocks}"
         )
         run = await self.agent.run(prompt)
 
@@ -133,21 +133,20 @@ class OrchestratorService:
                     logger.error("consume error: %s", msg.error())
                 continue
 
-            if msg.value() is None:  # upsert tombstone
+            if msg.value() is None:
                 self.consumer.commit(msg, asynchronous=False)
                 continue
 
             try:
                 event = self._synthesis_codec.decode(msg.value(), self.spec.topics.synthesis)
-                event.claim_id = self._synthesis_key.claim_id(msg.key(), self.spec.topics.synthesis)
+                if not event.claim_id:
+                    event.claim_id = _claim_id_of(event.aggregated_payload)
             except Exception:
                 logger.exception("bad synthesis payload, skipping")
                 self.consumer.commit(msg, asynchronous=False)
                 continue
 
-            if event.agent_count < self._expected:
-                logger.info("%s: %d/%d agents in, waiting", event.claim_id, event.agent_count, self._expected)
-            elif event.claim_id in self._decided:
+            if event.claim_id in self._decided:
                 pass  # barrier already fired for this claim
             else:
                 try:
@@ -155,12 +154,32 @@ class OrchestratorService:
                     self._decided.add(event.claim_id)
                     self.producer.flush(10)
                 except Exception:
-                    logger.exception("synthesis failed for %s, will retry on next update", event.claim_id)
+                    logger.exception("synthesis failed for %s, will retry if re-emitted", event.claim_id)
 
             self.consumer.commit(msg, asynchronous=False)
 
         self.producer.flush(10)
         self.consumer.close()
+
+
+def _parse_payload(aggregated_payload: str) -> dict:
+    """The PTF emits {"claim_id":..., "partial":bool, "results":{agent: text}}."""
+    try:
+        obj = json.loads(aggregated_payload)
+        return obj if isinstance(obj, dict) else {"results": {"": str(obj)}}
+    except (TypeError, json.JSONDecodeError):
+        return {"results": {"": aggregated_payload}}
+
+
+def _claim_id_of(aggregated_payload: str) -> str:
+    return str(_parse_payload(aggregated_payload).get("claim_id", "UNKNOWN"))
+
+
+def _format_findings(aggregated_payload: str) -> tuple[str, bool]:
+    obj = _parse_payload(aggregated_payload)
+    results = obj.get("results", {}) or {}
+    blocks = "\n\n".join(f"--- {name} ---\n{text}" for name, text in results.items())
+    return blocks, bool(obj.get("partial", False))
 
 
 def _split_decision(text: str) -> tuple[str, str]:
