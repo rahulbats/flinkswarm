@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Full reset — wipe Kafka data AND Flink state, then rebuild the pipeline.
-# Use before a fresh demo when you want to reuse claim ids like CLM-1001.
+#
+# You usually DON'T need this: AgentBarrier clears its own state on emit, so
+# re-dispatching CLM-1001 already decides it fresh. Use reset only when you want
+# empty topics or you changed the PTF / table schema.
 #
 #   scripts/reset.sh              # reuse the uploaded PTF jar (fast)
 #   scripts/reset.sh --rebuild    # also rebuild + re-upload the PTF jar

@@ -19,12 +19,22 @@ EXPECTED_AGENTS="${EXPECTED_AGENTS:-2}"    # = number of spec.workers in agent-s
 BARRIER_UID="${BARRIER_UID:-flinkswarm-barrier-v4}"
 ART_NAME="flinkswarm-barrier-ptf"
 
+pause() { python3 -c "import time;time.sleep(${1:-4})" 2>/dev/null || perl -e "select(undef,undef,undef,${1:-4})" 2>/dev/null || true; }
+
 fc() {  # confluent flink statement create <name> <sql> [extra flags...]
   local name="$1" sql="$2"; shift 2
   confluent flink statement delete "$name" --force >/dev/null 2>&1 || true
-  confluent flink statement create "$name" \
-    --compute-pool "$COMPUTE_POOL" --database "$DATABASE" --environment "$ENVIRONMENT" \
-    --sql "$sql" "$@"
+  local i
+  for i in $(seq 1 8); do
+    if confluent flink statement create "$name" \
+        --compute-pool "$COMPUTE_POOL" --database "$DATABASE" --environment "$ENVIRONMENT" \
+        --sql "$sql" "$@" 2>/tmp/fc_err.$$; then
+      rm -f /tmp/fc_err.$$; return 0
+    fi
+    grep -q "already exists" /tmp/fc_err.$$ || { cat /tmp/fc_err.$$; rm -f /tmp/fc_err.$$; return 1; }
+    pause 4   # delete not yet propagated — wait and retry
+  done
+  cat /tmp/fc_err.$$; rm -f /tmp/fc_err.$$; return 1
 }
 
 if [ "${1:-}" = "--sql-only" ]; then

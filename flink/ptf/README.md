@@ -10,6 +10,11 @@ have reported. Because it emits once on an append stream, the orchestrator just
 consumes and synthesizes — no count gate, no upsert changelog to de-duplicate
 (contrast the pure-SQL `GROUP BY` barrier in `../setup_queries.sql`).
 
+On emit it calls `ctx.clearAllState()`, so the claim is **forgotten** — you can
+re-dispatch the same `claim_id` and it's adjudicated fresh, no pipeline reset
+needed. (A stray late result for an already-decided claim just starts a new,
+harmless one-entry accumulation that the statement's `sql.state-ttl` sweeps up.)
+
 Output value is a JSON string:
 ```json
 {"claim_id":"CLM-1001","partial":false,"results":{"ClaimDataAgent":"…","PolicyDocAgent":"…"}}

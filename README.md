@@ -142,11 +142,12 @@ pytest -q          # unit tests, no Kafka/LLM needed (agent loop is faked)
 
 ## Notes / TODO
 
-- **Barrier timeout**: `AgentBarrier` clears its state when it emits, so state =
-  only in-flight claims (the statement also carries `sql.state-ttl='4 hours'`).
-  A claim where an agent never reports still stalls, though — the PTF should
-  register a Flink 2.1 timer and emit a `"partial": true` payload on timeout
-  (the orchestrator already handles that field). See `flink/ptf/README.md`.
+- **Re-running a claim**: `AgentBarrier` calls `ctx.clearAllState()` on emit, so
+  re-dispatching the same `claim_id` is decided fresh — no `scripts/reset.sh`
+  needed between demo runs.
+- **Barrier timeout**: a claim where an agent never reports still stalls. The
+  PTF should register a Flink 2.1 timer and emit a `"partial": true` payload on
+  timeout (the orchestrator already handles that field). See `flink/ptf/README.md`.
 - **Orchestrator dedupe** is an in-memory `set` of decided claim_ids — decisions
   can be re-emitted after an orchestrator restart. Make `agent.decisions.final`
   the source of truth if that matters.

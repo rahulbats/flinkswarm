@@ -16,10 +16,15 @@ import org.apache.flink.types.Row;
  *
  * <p>Partitioned by the Kafka key ({@code key} column == claim_id). Buffers one
  * result per sub-agent in keyed PTF state and emits exactly one aggregated row
- * once {@code expected_agents} distinct agents have reported. Emitting once, on
- * an append stream, is why this is cleaner than the pure-SQL {@code GROUP BY}
- * barrier (which emits an upsert row on every agent and pushes the "all in?"
- * gate to the orchestrator).
+ * once {@code expectedAgents} distinct agents have reported. On emit it calls
+ * {@code ctx.clearAllState()} — the claim is forgotten, so re-dispatching the
+ * same claim_id is adjudicated fresh (a duplicate/late result for a decided
+ * claim just starts a new, harmless single-entry accumulation that the
+ * statement's state TTL sweeps up).
+ *
+ * <p>Emitting once, on an append stream, is why this is cleaner than the
+ * pure-SQL {@code GROUP BY} barrier (which emits an upsert row on every agent
+ * and pushes the "all in?" gate to the orchestrator).
  *
  * <p>Output value is a JSON string:
  * <pre>{"claim_id":"CLM-1001","partial":false,"results":{"ClaimDataAgent":"...","PolicyDocAgent":"..."}}</pre>
@@ -30,8 +35,8 @@ import org.apache.flink.types.Row;
  * SELECT claim_id, aggregated_payload
  * FROM AgentBarrier(
  *   input          => TABLE `agent.results.completed` PARTITION BY `key`,
- *   expected_agents => 2,
- *   uid            => 'flinkswarm-barrier-v2');
+ *   expectedAgents => 2,
+ *   uid            => 'flinkswarm-barrier-v4');
  * </pre>
  *
  * <p>Build with JDK 21 and the {@code -parameters} compiler flag (see pom.xml).
@@ -42,17 +47,13 @@ public class AgentBarrier extends ProcessTableFunction<Row> {
     public static class BarrierState {
         /** agent_name -> result text, ordered for a deterministic payload. */
         public Map<String, String> responses = new TreeMap<>();
-        public boolean emitted = false;
     }
 
     public void eval(
+            Context ctx,
             @StateHint BarrierState state,
             @ArgumentHint(SET_SEMANTIC_TABLE) Row input,
             Integer expectedAgents) {
-
-        if (state.emitted) {
-            return; // a straggler after the barrier already fired for this key
-        }
 
         String claimId = input.getFieldAs("key"); // partition key == claim_id
         String agentName = input.getFieldAs("agent_name");
@@ -66,8 +67,8 @@ public class AgentBarrier extends ProcessTableFunction<Row> {
         int expected = (expectedAgents == null || expectedAgents <= 0) ? 1 : expectedAgents;
         if (state.responses.size() >= expected) {
             collect(Row.of(claimId, payload(claimId, state.responses, false)));
-            state.emitted = true;
-            state.responses = new TreeMap<>();
+            state.responses.clear();
+            ctx.clearAllState(); // forget the claim — a re-dispatch decides it anew
         }
     }
 
