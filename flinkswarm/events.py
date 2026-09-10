@@ -89,10 +89,13 @@ class SynthesisReady:
     The value schema for this topic is owned by the Flink `CREATE TABLE`, so this
     schema is only used for permissive read-side validation. `aggregated_payload`
     is a JSON string: {"claim_id":..., "partial":bool, "results":{agent: text}}.
+
+    `claim_id` is not in the value (Flink puts it in the Kafka key via
+    DISTRIBUTED BY) — the orchestrator fills it in from the payload JSON.
     """
 
-    claim_id: str
     aggregated_payload: str
+    claim_id: str = ""
 
     JSON_SCHEMA = json.dumps(
         {
