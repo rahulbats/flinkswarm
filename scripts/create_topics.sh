@@ -4,10 +4,11 @@
 set -euo pipefail
 
 PARTITIONS="${PARTITIONS:-6}"
+# agent.synthesis.ready is NOT here — Flink owns it (created by CREATE TABLE in
+# flink/create_barrier.sh, so it gets a typed schema, not raw BYTES).
 TOPICS=(
   "agent.tasks.dispatched"
   "agent.results.completed"
-  "agent.synthesis.ready"
   "agent.decisions.final"
 )
 
