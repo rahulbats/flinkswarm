@@ -61,16 +61,16 @@
   }
   h2{
     font-weight:600; letter-spacing:-.015em; text-wrap:balance; margin:0;
-    font-size:clamp(1.55rem,3.7vw,2.5rem); line-height:1.1;
+    font-size:clamp(1.5rem,3.5vw,2.4rem); line-height:1.12;
   }
-  .sub{font-size:clamp(1rem,1.7vw,1.35rem); color:var(--muted); margin:.6rem 0 0; font-weight:400}
+  .sub{font-size:clamp(1rem,1.6vw,1.28rem); color:var(--muted); margin:.6rem 0 0; font-weight:400}
 
   .fill{flex:1; display:flex; flex-direction:column; justify-content:center; gap:1rem; min-height:0}
 
   ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.7rem}
   li{
     position:relative; padding-left:1.4rem; line-height:1.5;
-    font-size:clamp(.95rem,1.45vw,1.12rem);
+    font-size:clamp(.95rem,1.4vw,1.1rem);
   }
   li::before{
     content:""; position:absolute; left:0; top:.62em; width:7px; height:2px; background:var(--accent);
@@ -81,13 +81,11 @@
 
   .mono{font-family:"IBM Plex Mono", monospace}
   strong{font-weight:600}
+  em{font-style:normal; color:var(--accent); font-weight:500}
   .k{font-family:"IBM Plex Mono", monospace; color:var(--accent); font-weight:500}
 
-  /* two-column option layout */
   .cols{display:grid; grid-template-columns:1fr 1fr; gap:1.6rem 2.4rem; align-items:start}
-  .opt h3{
-    font-size:1.02rem; font-weight:600; margin:0 0 .2rem;
-  }
+  .opt h3{ font-size:1.02rem; font-weight:600; margin:0 0 .2rem; }
   .opt .src{font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:.55rem}
   .pc{display:flex; flex-direction:column; gap:.5rem; margin-top:.5rem}
   .pc div{font-size:.92rem; line-height:1.45; padding-left:2.4rem; position:relative}
@@ -100,18 +98,38 @@
   .pc .pro{color:var(--ink)}
   .pc .con{color:var(--muted)}
 
+  table{border-collapse:collapse; width:100%; font-size:clamp(.82rem,1.15vw,1rem)}
+  th,td{text-align:left; padding:.5rem .65rem; vertical-align:top; line-height:1.4}
+  thead th{
+    font-family:"IBM Plex Mono",monospace; font-weight:500; font-size:.64rem;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+    border-bottom:1.5px solid var(--hair);
+  }
+  tbody tr+tr td{border-top:1px solid var(--hair)}
+  td:first-child{font-weight:600}
+  .t-fit td:first-child{color:var(--accent); white-space:nowrap}
+
   a{color:var(--accent)}
   .link{font-size:.8rem; word-break:break-all}
 
   .spec{
     background:var(--code-bg); border-radius:8px; padding:.9rem 1.1rem;
-    font-family:"IBM Plex Mono",monospace; font-size:.8rem; line-height:1.7;
+    font-family:"IBM Plex Mono",monospace; font-size:.8rem; line-height:1.65;
     white-space:pre-wrap; color:var(--ink);
   }
 
   figure{margin:0; flex:1; display:flex; flex-direction:column; gap:.5rem; min-height:0}
   figure svg{width:100%; height:100%; flex:1; min-height:0; color:var(--ink)}
   figcaption{font-size:.82rem; color:var(--muted); line-height:1.4}
+
+  .kicker{font-family:"IBM Plex Mono",monospace; font-size:.62rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:.5rem}
+
+  .takeaway{
+    margin-top:auto; padding-top:.85rem; border-top:1px solid var(--hair);
+    font-family:"IBM Plex Sans",sans-serif; font-weight:500; color:var(--ink);
+    font-size:clamp(.88rem,1.35vw,1.05rem); display:flex; gap:.65rem; align-items:baseline;
+  }
+  .takeaway::before{content:"\2192"; color:var(--accent); font-weight:700}
 
   .num{
     position:absolute; top:1.1rem; right:1.5rem;
@@ -134,7 +152,6 @@
   }
   :focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
 
-  /* one slide per page when printing / saving to PDF */
   @page{ size:1280px 720px; margin:0 }
   @media print{
     :root{ --shadow:none }
@@ -148,149 +165,70 @@
 
 <div class="deck" id="deck">
 
-  <!-- 1 -->
+  <!-- 1 - TITLE -->
   <section class="slide">
     <div class="stage" style="justify-content:center; gap:1.4rem">
-      <span class="num">01 / 10</span>
+      <span class="num">01 / 11</span>
       <div class="eyebrow">Solutions Engineering</div>
       <h1>Agentic AI workflows</h1>
-      <p class="sub">Using asynchronous, distributed agents on an event backbone</p>
+      <p class="sub">Coordinating a distributed AI agent swarm on the event backbone the customer already runs</p>
       <div class="foot"><span>Kafka &amp; Flink</span><span>Claims adjudication</span></div>
     </div>
   </section>
 
-  <!-- 2 -->
+  <!-- 2 - WHAT ARE AGENTS (refresher) -->
   <section class="slide">
     <div class="stage">
-      <span class="num">02 / 10</span>
-      <div class="eyebrow">Background</div>
-      <h2>What are agents</h2>
+      <span class="num">02 / 11</span>
+      <div class="eyebrow">Quick refresher &mdash; so the demo lands</div>
+      <h2>What an agent is</h2>
       <ul class="fill">
-        <li>Unlike an LLM on its own, an agent can <strong>take actions</strong></li>
-        <li>An agent is a wrapper around an LLM with <strong>tools, instructions, skills, and a knowledge base</strong></li>
-        <li>Every call to the LLM carries the tools and instructions; the LLM replies with which tool to run. The agent runs it, feeds the result back, and the loop repeats until the task is done</li>
-        <li><strong>Isolation matters.</strong> Too many tools overwhelm the LLM context and cause hallucinations</li>
-        <li>Each agent should run in its own <strong>sandbox</strong> to contain security risk</li>
+        <li>Unlike an LLM on its own, an agent can <strong>take actions</strong> &mdash; it's a wrapper around an LLM with tools, instructions, and a knowledge base</li>
+        <li>Every call to the LLM carries the tools and instructions; the LLM replies with which tool to run; the agent runs it, feeds the result back, and the loop repeats until the task is done</li>
+        <li><strong>Isolation matters:</strong> too many tools in one agent overwhelm the context and cause hallucinations</li>
+        <li>Each agent should run in its own <strong>sandbox</strong> &mdash; a compromised agent must not reach another's data or credentials</li>
       </ul>
     </div>
   </section>
 
-  <!-- 3 -->
+  <!-- 3 - THE CUSTOMER -->
   <section class="slide">
     <div class="stage">
-      <span class="num">03 / 10</span>
+      <span class="num">03 / 11</span>
       <div class="eyebrow">The customer</div>
-      <h2>A P&amp;C insurer digitizing claims adjudication</h2>
+      <h2>A P&amp;C carrier whose second-largest controllable cost is deciding claims</h2>
       <ul class="fill">
-        <li>A <strong>Property &amp; Casualty</strong> carrier settling millions of dollars in claims at very high annual volume</li>
-        <li>Adjusters read hundreds of pages per claim and research its merits by hand &mdash; <strong>slow and error-prone</strong></li>
-        <li><strong>Strategic goal:</strong> digitize claims review and approval &mdash; cut cost and decision time</li>
-        <li>Approach: AI agents that <strong>approve / deny / semi-approve</strong> a claim</li>
-        <li>Simplified for this talk &mdash; three agents:
-          <ul>
-            <li><span class="k">Claims Agent</span> &mdash; looks up the claims database for claim details</li>
-            <li><span class="k">Policy Agent</span> &mdash; looks up the object store for the policyholder's policy</li>
-            <li><span class="k">Coverage Orchestrator</span> &mdash; adjudicates from both agents' outputs</li>
-          </ul>
-        </li>
-        <li>Each agent runs in its own isolated machine / sandbox &mdash; for parallelism and to contain security risk</li>
+        <li>Property &amp; Casualty; millions of dollars in claims a year at very high volume</li>
+        <li>Today a claim sits with an adjuster who reads hundreds of pages, checks the policy language by hand, and researches similar past claims &mdash; <strong>days per claim</strong>, and two adjusters can reach different answers on the same facts</li>
+        <li>The cost of deciding claims &mdash; adjuster time, appraisers, reviews &mdash; is their largest controllable expense after the claim payouts themselves</li>
+        <li><strong>Board mandate:</strong> cut claims cycle time and cost without adding headcount &mdash; and every automated decision has to be defensible to a regulator</li>
+      </ul>
+      <div class="takeaway">The ask isn't "add an LLM" &mdash; it's coordinating many specialists per claim, at volume, defensibly.</div>
+    </div>
+  </section>
+
+  <!-- 4 - REQUIREMENTS -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">04 / 11</span>
+      <div class="eyebrow">Requirements</div>
+      <h2>What a solution has to do</h2>
+      <ul class="fill">
+        <li><strong>Many specialists per claim, in parallel:</strong> claim data, policy coverage, fraud signal, medical review &mdash; then one adjudication step</li>
+        <li><strong>Elastic:</strong> a catastrophe event can 5&ndash;10&times; daily claim volume for weeks</li>
+        <li><strong>Runs where the data is:</strong> some agents on-prem (PII / PHI stays inside the boundary), some in cloud</li>
+        <li><strong>Every input and decision retained and replayable</strong> &mdash; "why was claim 4471 denied?" answered from a record, not reconstructed</li>
+        <li><strong>Trustworthy decisions:</strong> defend against prompt injection and poisoned claim documents; catch model drift as policies and the model change</li>
+        <li><strong>Agents built in-house, each isolated, no runtime lock-in</strong></li>
       </ul>
     </div>
   </section>
 
-  <!-- 4 -->
+  <!-- 5 - EVALUATED 1 -->
   <section class="slide">
     <div class="stage">
-      <span class="num">04 / 10</span>
-      <div class="eyebrow">The design</div>
-      <h2>Flow</h2>
-      <figure>
-        <svg viewBox="0 0 1180 300" role="img" aria-label="A claim is dispatched to a topic; the Claim Agent and Policy Agent consume it in parallel and look up their stores; both write to an analysis-ready topic; a Flink PTF buffers each agent's result per claim and emits once all are in; the orchestrator agent then runs the LLM verdict and writes the final decision topic">
-          <defs>
-            <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker>
-            <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker>
-          </defs>
-
-          <!-- claim -->
-          <rect x="14" y="128" width="78" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
-          <text x="53" y="152" text-anchor="middle" font-size="12" fill="currentColor">Claim</text>
-          <line x1="92" y1="148" x2="140" y2="148" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
-
-          <!-- dispatch topic -->
-          <rect x="142" y="126" width="118" height="44" rx="22" fill="var(--accent-weak)" stroke="var(--accent)" stroke-width="1.3"/>
-          <text x="201" y="144" text-anchor="middle" font-size="11" fill="currentColor">dispatch</text>
-          <text x="201" y="158" text-anchor="middle" font-size="11" fill="currentColor">claim topic</text>
-
-          <!-- fan out -->
-          <path d="M260 138 C 292 138 296 66 320 66" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
-          <path d="M260 158 C 292 158 296 230 320 230" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
-
-          <!-- claim agent -->
-          <rect x="322" y="46" width="118" height="42" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
-          <text x="381" y="72" text-anchor="middle" font-size="12" fill="currentColor">Claim Agent</text>
-          <!-- claims db -->
-          <path d="M470 44 h84 v40 a42 6 0 0 1 -84 0 v-40 a42 6 0 0 1 84 0 a42 6 0 0 1 -84 0" fill="none" stroke="var(--muted)" stroke-width="1.2"/>
-          <text x="512" y="70" text-anchor="middle" font-size="10.5" fill="var(--muted)">Claims DB</text>
-          <path d="M440 60 L468 60" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ad)"/>
-          <text x="454" y="52" text-anchor="middle" font-size="9" fill="var(--muted)">lookup</text>
-
-          <!-- policy agent -->
-          <rect x="322" y="210" width="118" height="42" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
-          <text x="381" y="236" text-anchor="middle" font-size="12" fill="currentColor">Policy Agent</text>
-          <!-- policy store -->
-          <path d="M470 210 h84 v40 a42 6 0 0 1 -84 0 v-40 a42 6 0 0 1 84 0 a42 6 0 0 1 -84 0" fill="none" stroke="var(--muted)" stroke-width="1.2"/>
-          <text x="512" y="228" text-anchor="middle" font-size="10" fill="var(--muted)">Policy</text>
-          <text x="512" y="240" text-anchor="middle" font-size="10" fill="var(--muted)">store</text>
-          <path d="M440 231 L468 231" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ad)"/>
-          <text x="454" y="223" text-anchor="middle" font-size="9" fill="var(--muted)">lookup</text>
-
-          <!-- fan in -->
-          <path d="M440 78 C 520 78 540 138 588 138" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
-          <path d="M440 220 C 520 220 540 160 588 160" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
-
-          <!-- analysis ready topic -->
-          <rect x="590" y="126" width="120" height="46" rx="23" fill="var(--accent-weak)" stroke="var(--accent)" stroke-width="1.3"/>
-          <text x="650" y="144" text-anchor="middle" font-size="11" fill="currentColor">analysis</text>
-          <text x="650" y="158" text-anchor="middle" font-size="11" fill="currentColor">ready topic</text>
-
-          <line x1="710" y1="149" x2="752" y2="149" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
-
-          <!-- flink -->
-          <rect x="754" y="122" width="150" height="54" rx="6" fill="none" stroke="var(--accent)" stroke-width="1.8"/>
-          <text x="829" y="143" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">Flink PTF</text>
-          <text x="829" y="159" text-anchor="middle" font-size="9.5" fill="var(--muted)">buffer per agent, emit once all in</text>
-
-          <!-- diamond -->
-          <path d="M960 149 L998 123 L1036 149 L998 175 z" fill="none" stroke="currentColor" stroke-width="1.4"/>
-          <text x="998" y="146" text-anchor="middle" font-size="8.5" fill="currentColor">both agents</text>
-          <text x="998" y="157" text-anchor="middle" font-size="8.5" fill="currentColor">completed?</text>
-          <line x1="904" y1="149" x2="958" y2="149" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
-
-          <!-- orchestrator -->
-          <rect x="1044" y="106" width="122" height="86" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
-          <text x="1105" y="140" text-anchor="middle" font-size="11" fill="currentColor">Orchestrator</text>
-          <text x="1105" y="154" text-anchor="middle" font-size="11" fill="currentColor">Agent</text>
-          <text x="1105" y="172" text-anchor="middle" font-size="8.5" fill="var(--muted)">LLM verdict</text>
-          <line x1="1036" y1="149" x2="1042" y2="149" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
-
-          <!-- final decision -->
-          <path d="M1105 192 L1105 220" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
-          <rect x="1040" y="222" width="130" height="42" rx="21" fill="var(--accent-weak)" stroke="var(--accent)" stroke-width="1.3"/>
-          <text x="1105" y="248" text-anchor="middle" font-size="11" fill="currentColor">final decision topic</text>
-        </svg>
-        <figcaption>
-          The agents never call each other or the orchestrator &mdash; they only produce to and consume from topics.
-          Flink does the fan-in; once both agents are in, the orchestrator runs the LLM that reads the claim and the policy to decide.
-        </figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <!-- 5 -->
-  <section class="slide">
-    <div class="stage">
-      <span class="num">05 / 10</span>
-      <div class="eyebrow">Existing options &mdash; 1 of 2</div>
+      <span class="num">05 / 11</span>
+      <div class="eyebrow">How the team has been evaluating this &mdash; 1 of 2</div>
       <h2>Hyperscaler agent platforms</h2>
       <div class="cols fill">
         <div class="opt">
@@ -300,7 +238,7 @@
             <div class="pro"><span class="tag">PRO</span>Runs on cloud infra with micro-VM sandboxes for isolation</div>
             <div class="pro"><span class="tag">PRO</span>Very low code and operational overhead</div>
             <div class="con"><span class="tag">CON</span>Black box and vendor lock-in</div>
-            <div class="con"><span class="tag">CON</span>Severe regional capacity limits &mdash; forcing customers to run workloads outside their primary business region</div>
+            <div class="con"><span class="tag">CON</span>Severe regional capacity limits &mdash; pushing customers to run workloads outside their primary business region</div>
           </div>
         </div>
         <div class="opt">
@@ -310,7 +248,7 @@
             <div class="pro"><span class="tag">PRO</span>Full control over what the agent does</div>
             <div class="pro"><span class="tag">PRO</span>Fine when the use case is simple</div>
             <div class="con"><span class="tag">CON</span>You lose sandbox isolation and the other managed benefits</div>
-            <div class="con"><span class="tag">CON</span>The workflow API does not make it run distributed</div>
+            <div class="con"><span class="tag">CON</span>The workflow API doesn't make it run distributed</div>
           </div>
           <a class="link mono" href="https://github.com/rahulbats/workflow-skills-agent-framework-demo/blob/main/demo1_orchestrator_workflow/main.py">github.com/rahulbats/workflow-skills-agent-framework-demo</a>
         </div>
@@ -318,107 +256,194 @@
     </div>
   </section>
 
-  <!-- 6 -->
+  <!-- 6 - EVALUATED 2 + THE GAP -->
   <section class="slide">
     <div class="stage">
-      <span class="num">06 / 10</span>
-      <div class="eyebrow">Existing options &mdash; 2 of 2</div>
-      <h2>Orchestration frameworks &mdash; LanGraph, Temporal</h2>
+      <span class="num">06 / 11</span>
+      <div class="eyebrow">How the team has been evaluating this &mdash; 2 of 2</div>
+      <h2>Orchestration frameworks &mdash; LangGraph, Temporal</h2>
       <div class="fill">
-        <div class="pc" style="max-width:60ch">
+        <div class="pc" style="max-width:62ch">
           <div class="pro"><span class="tag">PRO</span>Strong open-source community</div>
           <div class="pro"><span class="tag">PRO</span>Workflows are distributed</div>
           <div class="con"><span class="tag">CON</span>Built around communication <em>between</em> agents &mdash; the workers have to know about and report back to the orchestrator / manager</div>
         </div>
-        <p class="sub" style="max-width:58ch">
+        <p class="sub" style="max-width:60ch">
           The coordination is point-to-point, and the workflow history lives inside one engine &mdash;
-          no other system can subscribe to it.
+          no fraud team, BI, or model-retraining pipeline can subscribe to it.
         </p>
       </div>
+      <div class="takeaway">The gap all three share: the coordination layer is bespoke, coupled, and <em>not</em> the system of record.</div>
     </div>
   </section>
 
-  <!-- 7 -->
+  <!-- 7 - THE PROPOSAL -->
   <section class="slide">
     <div class="stage">
-      <span class="num">07 / 10</span>
+      <span class="num">07 / 11</span>
       <div class="eyebrow">The proposal</div>
-      <h2>Can Kafka fill this gap?</h2>
+      <h2>Kafka as the agents' nervous system</h2>
       <ul class="fill">
-        <li>If you already run Kafka for mission-critical event flows, extending it to agent coordination adds <strong>no new system of record</strong></li>
-        <li>Tasks that need parallel or sequential execution are dropped on topics; a distributed swarm of <strong>fully isolated</strong> agents on containers / VMs executes them</li>
-        <li>An agent or service crash simply <strong>resumes from the last committed offset</strong></li>
-        <li>Fan-in is a stateful <strong>Flink function (PTF)</strong> that buffers each agent's result and emits one record per claim once all are in &mdash; the orchestrator picks that up and runs the final LLM verdict</li>
-        <li>No point-to-point communication between agents &mdash; the log is the only thing they share, and complex workflows compose without much effort</li>
+        <li>The customer already runs Kafka for mission-critical event flows &mdash; extending it to agent coordination adds <strong>no new system of record</strong></li>
+        <li>Tasks are dropped on topics; a distributed swarm of <strong>fully isolated</strong> agents on containers / VMs picks them up in parallel</li>
+        <li>An agent or service crash simply <strong>resumes from the last committed offset</strong> &mdash; no lost work, no bespoke retry logic</li>
+        <li>Fan-in is a Flink <strong>ProcessTableFunction</strong> (PTF, Flink&nbsp;2.1) &mdash; keyed state buffers each agent's result and emits one record per claim once all report; the orchestrator runs the final LLM verdict from that</li>
+        <li><strong>No point-to-point calls</strong> &mdash; agents never talk to each other or the orchestrator; the log is the only thing they share, and every result also feeds fraud analytics, ops, and retraining</li>
       </ul>
     </div>
   </section>
 
-  <!-- 8 -->
+  <!-- 8 - HOW IT WORKS -->
   <section class="slide">
     <div class="stage">
-      <span class="num">08 / 10</span>
-      <div class="eyebrow">Live</div>
+      <span class="num">08 / 11</span>
+      <div class="eyebrow">How it works</div>
+      <h2>One claim, end to end</h2>
+      <figure>
+        <svg viewBox="0 0 1180 300" role="img" aria-label="A claim is dispatched to a topic; the Claim Agent and Policy Agent consume it in parallel and look up their stores; both write to an analysis-ready topic; a Flink ProcessTableFunction buffers each agent's result per claim in keyed state and emits once all are in; the orchestrator agent then runs the LLM verdict and writes the final decision topic">
+          <defs>
+            <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker>
+            <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker>
+          </defs>
+
+          <rect x="14" y="128" width="78" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="53" y="152" text-anchor="middle" font-size="12" fill="currentColor">Claim</text>
+          <line x1="92" y1="148" x2="140" y2="148" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <rect x="142" y="126" width="118" height="44" rx="22" fill="var(--accent-weak)" stroke="var(--accent)" stroke-width="1.3"/>
+          <text x="201" y="144" text-anchor="middle" font-size="11" fill="currentColor">dispatch</text>
+          <text x="201" y="158" text-anchor="middle" font-size="11" fill="currentColor">claim topic</text>
+
+          <path d="M260 138 C 292 138 296 66 320 66" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+          <path d="M260 158 C 292 158 296 230 320 230" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <rect x="322" y="46" width="118" height="42" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="381" y="72" text-anchor="middle" font-size="12" fill="currentColor">Claim Agent</text>
+          <path d="M470 44 h84 v40 a42 6 0 0 1 -84 0 v-40 a42 6 0 0 1 84 0 a42 6 0 0 1 -84 0" fill="none" stroke="var(--muted)" stroke-width="1.2"/>
+          <text x="512" y="70" text-anchor="middle" font-size="10.5" fill="var(--muted)">Claims DB</text>
+          <path d="M440 60 L468 60" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ad)"/>
+          <text x="454" y="52" text-anchor="middle" font-size="9" fill="var(--muted)">lookup</text>
+
+          <rect x="322" y="210" width="118" height="42" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="381" y="236" text-anchor="middle" font-size="12" fill="currentColor">Policy Agent</text>
+          <path d="M470 210 h84 v40 a42 6 0 0 1 -84 0 v-40 a42 6 0 0 1 84 0 a42 6 0 0 1 -84 0" fill="none" stroke="var(--muted)" stroke-width="1.2"/>
+          <text x="512" y="228" text-anchor="middle" font-size="10" fill="var(--muted)">Policy</text>
+          <text x="512" y="240" text-anchor="middle" font-size="10" fill="var(--muted)">store</text>
+          <path d="M440 231 L468 231" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ad)"/>
+          <text x="454" y="223" text-anchor="middle" font-size="9" fill="var(--muted)">lookup</text>
+
+          <path d="M440 78 C 520 78 540 138 588 138" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+          <path d="M440 220 C 520 220 540 160 588 160" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <rect x="590" y="126" width="120" height="46" rx="23" fill="var(--accent-weak)" stroke="var(--accent)" stroke-width="1.3"/>
+          <text x="650" y="144" text-anchor="middle" font-size="11" fill="currentColor">analysis</text>
+          <text x="650" y="158" text-anchor="middle" font-size="11" fill="currentColor">ready topic</text>
+
+          <line x1="710" y1="149" x2="752" y2="149" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+          <rect x="754" y="116" width="150" height="66" rx="6" fill="none" stroke="var(--accent)" stroke-width="1.8"/>
+          <text x="829" y="136" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">Flink PTF</text>
+          <text x="829" y="150" text-anchor="middle" font-size="8.5" fill="var(--muted)">keyed state per claim</text>
+          <text x="829" y="162" text-anchor="middle" font-size="8.5" fill="var(--muted)">buffer agents,</text>
+          <text x="829" y="173" text-anchor="middle" font-size="8.5" fill="var(--muted)">emit once all in</text>
+
+          <line x1="904" y1="149" x2="1042" y2="149" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+          <text x="973" y="141" text-anchor="middle" font-size="9" fill="var(--muted)">synthesis topic</text>
+
+          <rect x="1044" y="106" width="122" height="86" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="1105" y="140" text-anchor="middle" font-size="11" fill="currentColor">Orchestrator</text>
+          <text x="1105" y="154" text-anchor="middle" font-size="11" fill="currentColor">Agent</text>
+          <text x="1105" y="172" text-anchor="middle" font-size="8.5" fill="var(--muted)">LLM verdict</text>
+
+          <path d="M1105 192 L1105 220" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+          <rect x="1040" y="222" width="130" height="42" rx="21" fill="var(--accent-weak)" stroke="var(--accent)" stroke-width="1.3"/>
+          <text x="1105" y="248" text-anchor="middle" font-size="11" fill="currentColor">final decision topic</text>
+        </svg>
+        <figcaption>
+          Agents never call each other or the orchestrator &mdash; they only produce to and consume from topics.
+          Flink holds the only cross-agent state (the per-claim barrier) and emits once all agents report.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 9 - WHY THIS FITS -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">09 / 11</span>
+      <div class="eyebrow">Why this architecture</div>
+      <h2>Each requirement maps to a property of the design</h2>
+      <table class="t-fit fill">
+        <thead><tr><th>Requirement</th><th>How the design delivers it</th></tr></thead>
+        <tbody>
+          <tr><td>Specialists in parallel &rarr; one verdict</td><td>Agents are independent Kafka consumers; a Flink <strong>ProcessTableFunction</strong> does the fan-in barrier in keyed state &mdash; wait for all N, then emit once.</td></tr>
+          <tr><td>Elastic to 5&ndash;10&times; for CAT events</td><td>KEDA scales each agent on consumer lag &mdash; no pre-provisioning, no shared-quota wall the way a managed tier has one.</td></tr>
+          <tr><td>Runs where the data is</td><td>Agents are the customer's containers; Kafka spans on-prem and cloud; PII topics stay on the on-prem cluster.</td></tr>
+          <tr><td>Auditable</td><td>The log <strong>is</strong> the record: every agent input, output, and decision &mdash; schema-governed, replayable, and visible in Stream Lineage.</td></tr>
+          <tr><td>Trustworthy decisions</td><td>Guardrails (input scanning, output validation, confidence gates) are just more functions in the pipeline; low-confidence claims route to a review topic. A new model is evaluated by replaying the retained history and diffing the outcomes.</td></tr>
+          <tr><td>In-house agents, no lock-in</td><td>The customer's code and model choice; the substrate is portable across clouds and on-prem.</td></tr>
+        </tbody>
+      </table>
+      <div class="takeaway">"Why was claim 4471 denied?" &mdash; replay the <span class="mono">claim_id</span> and read every agent's exact input and output.</div>
+    </div>
+  </section>
+
+  <!-- 10 - DEMO -->
+  <section class="slide">
+    <div class="stage">
+      <span class="num">10 / 11</span>
+      <div class="eyebrow">Live &mdash; a screen recording is ready if the network isn't</div>
       <h2>Demo</h2>
       <div class="cols fill">
         <ul>
           <li>Confluent Cloud Kafka + Schema Registry + managed Flink</li>
-          <li>Two worker agents, one consumer group each, against a local model <b>(qwen-3.8-26B 4bit quantized)</b></li>
-          <li>Flink barrier: a <span class="k">ProcessTableFunction</span> partitioned by claim, emits one record per claim once both agents report</li>
+          <li>Two agents, one consumer group each, against a local model <strong>(Qwen&nbsp;3, 4-bit quantized)</strong></li>
+          <li>Barrier: a Flink <span class="k">ProcessTableFunction</span> partitioned by claim &mdash; emits one record once both agents report</li>
           <li>Orchestrator consumes that record, runs the LLM, produces the decision</li>
         </ul>
         <div>
-          <div class="eyebrow" style="font-size:.62rem; margin-bottom:.5rem">what you'll see</div>
-          <div class="spec">dispatch CLM-1001 (burst pipe, $8,200)
-  &rarr; 2 agents run in parallel
-  &rarr; barrier emits 1 record (both findings)
-  &rarr; decision: <span class="k">COVERED</span>
-     $8,200 &minus; $1,000 deductible
-     = $7,200 payable</div>
+          <div class="kicker">what you'll see, across three terminals</div>
+          <div class="spec">dispatch CLM-1001 &mdash; burst pipe, $8,200
+  claim agent  &rarr; retrieves the record
+  policy agent &rarr; retrieves POL-55 (HO-3)
+  Flink        &rarr; emits 1 record, both findings
+  orchestrator &rarr; <span class="k">COVERED</span>
+     $8,200 &minus; $1,000 deductible = $7,200 payable
+     cites SEC-II-A (sudden &amp; accidental discharge)</div>
         </div>
       </div>
+      <div class="takeaway">Then a flood claim on a policy with no flood endorsement &mdash; same pipeline, comes back <span class="k">NOT COVERED</span>.</div>
     </div>
   </section>
 
-  <!-- 9 -->
+  <!-- 11 - SUMMARY + WHERE IT GOES -->
   <section class="slide">
     <div class="stage">
-      <span class="num">09 / 10</span>
-      <div class="eyebrow">Where this goes</div>
-      <h2>Future considerations</h2>
-      <ul class="fill">
-        <li>The demo is <strong>hand-wired</strong> &mdash; an orchestrator and two workers for one use case</li>
-        <li>Describe the swarm instead in an <strong><span class="k">agent-spec.yaml</span></strong></li>
-        <li>A <strong>Kubernetes operator</strong> watches the spec and launches the swarm, using Kafka as the coordination backbone</li>
-        <li>On Kubernetes, <strong>KEDA scales each agent on topic lag</strong> &mdash; swarm capacity follows load, including catastrophe-event spikes</li>
-      </ul>
-    </div>
-  </section>
-
-  <!-- 10 -->
-  <section class="slide">
-    <div class="stage">
-      <span class="num">10 / 10</span>
+      <span class="num">11 / 11</span>
       <div class="eyebrow">Wrap-up</div>
       <h2>Summary &amp; next steps</h2>
       <div class="cols fill">
         <div>
-          <div class="eyebrow" style="font-size:.62rem; margin-bottom:.6rem">the recommendation</div>
+          <div class="kicker">the recommendation</div>
           <ul>
-            <li>Coordinate the agent swarm on the <strong>event backbone you already run</strong></li>
-            <li>Agents stay yours &mdash; your code, your models, isolated</li>
+            <li>Coordinate the swarm on the <strong>event backbone you already run</strong> &mdash; not a new engine</li>
+            <li>Agents stay yours: your code, your models, each isolated</li>
             <li>Flink does the fan-in; the log is the audit trail</li>
+            <li>Distributed, elastic, and explainable at once</li>
           </ul>
         </div>
         <div>
-          <div class="eyebrow" style="font-size:.62rem; margin-bottom:.6rem">next steps</div>
+          <div class="kicker">next steps</div>
           <ul>
-            <li>Scoping workshop on one claim type</li>
-            <li>Access to a claims SME and a non-production data feed</li>
-            <li>Stand up a shadow-mode pilot &mdash; measure decision time and cost</li>
+            <li>A two-week <strong>scoping workshop</strong> &mdash; one experienced adjuster, a non-production claims feed &mdash; to put real numbers on cycle time and cost for one claim type</li>
+            <li><strong>Phase 1: shadow mode</strong> &mdash; the swarm decides alongside your adjusters, nobody acts on it; that comparison is also the first eval baseline</li>
+            <li>Before go-live: a <strong>guardrail layer</strong> (injection / PII in, decision validation out) and an <strong>eval harness</strong> that replays claims across model versions to catch drift</li>
+            <li>Adjuster corrections land on their own topic &mdash; a <strong>labeled dataset that grows itself</strong>, feeding periodic fine-tuning</li>
+            <li>Then: an <span class="k">agent-spec.yaml</span> and a K8s operator stand the swarm up; KEDA scales it on lag</li>
           </ul>
         </div>
       </div>
+      <div class="takeaway">One decision this week: do we book the workshop?</div>
     </div>
   </section>
 
